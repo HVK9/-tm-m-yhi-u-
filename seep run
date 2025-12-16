@@ -130,8 +130,8 @@ local function createFeature(name, yPos, minVal, maxVal, defaultVal, updateFunc)
 	-- Thanh trượt (Slider Background)
 	local sliderBg = Instance.new("TextButton") -- Dùng TextButton để bắt sự kiện click
 	sliderBg.Text = ""
-	sliderBg.Size = UDim2.new(0, 200, 0, 15)
-	sliderBg.Position = UDim2.new(0, 0, 0.5, 15)
+	sliderBg.Size = UDim2.new(0, 200, 0, 20)
+	sliderBg.Position = UDim2.new(0, 0, 0.5, 20)
 	sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 	sliderBg.AutoButtonColor = false
 	sliderBg.Parent = frame
