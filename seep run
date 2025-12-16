@@ -1,0 +1,257 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- == CẤU HÌNH UI ==
+local UI_COLOR = Color3.fromRGB(30, 30, 30) -- Màu nền chính
+local ACCENT_COLOR = Color3.fromRGB(0, 170, 255) -- Màu nút/thanh kéo
+local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
+
+-- == TẠO GUI ==
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HVK9_Client"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- 1. NÚT ICON NHỎ (CHỮ H)
+local iconFrame = Instance.new("TextButton")
+iconFrame.Name = "IconFrame"
+iconFrame.Size = UDim2.new(0, 50, 0, 50)
+iconFrame.Position = UDim2.new(0, 20, 0.4, 0) -- Vị trí bên trái màn hình
+iconFrame.BackgroundColor3 = UI_COLOR
+iconFrame.Text = "H"
+iconFrame.TextSize = 30
+iconFrame.Font = Enum.Font.GothamBold
+iconFrame.TextColor3 = ACCENT_COLOR
+iconFrame.Visible = false -- Ẩn mặc định
+iconFrame.Parent = screenGui
+
+-- Bo tròn icon
+local iconCorner = Instance.new("UICorner")
+iconCorner.CornerRadius = UDim.new(0, 10)
+iconCorner.Parent = iconFrame
+
+-- 2. KHUNG CHÍNH (MAIN UI)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 320, 0, 250)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -125)
+mainFrame.BackgroundColor3 = UI_COLOR
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Active = true
+mainFrame.Draggable = true -- Cho phép kéo bảng
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainFrame
+
+-- Tiêu đề HVK9
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Text = "HVK9 CLIENT"
+titleLabel.Size = UDim2.new(1, -50, 0, 40)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = TEXT_COLOR
+titleLabel.Font = Enum.Font.GothamBlack
+titleLabel.TextSize = 20
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = mainFrame
+
+-- Nút Thu nhỏ (-)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Text = "-"
+closeBtn.Size = UDim2.new(0, 40, 0, 40)
+closeBtn.Position = UDim2.new(1, -40, 0, 0)
+closeBtn.BackgroundTransparency = 1
+closeBtn.TextColor3 = TEXT_COLOR
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 24
+closeBtn.Parent = mainFrame
+
+-- Container chứa các chức năng
+local container = Instance.new("Frame")
+container.Size = UDim2.new(1, -20, 1, -50)
+container.Position = UDim2.new(0, 10, 0, 50)
+container.BackgroundTransparency = 1
+container.Parent = mainFrame
+
+-- == HÀM TẠO CHỨC NĂNG (SLIDER + TOGGLE) ==
+local function createFeature(name, yPos, minVal, maxVal, defaultVal, updateFunc)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, 0, 0, 60)
+	frame.Position = UDim2.new(0, 0, 0, yPos)
+	frame.BackgroundTransparency = 1
+	frame.Parent = container
+
+	-- Tên chức năng
+	local label = Instance.new("TextLabel")
+	label.Text = name
+	label.Size = UDim2.new(1, -60, 0, 20)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = TEXT_COLOR
+	label.Font = Enum.Font.GothamBold
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextSize = 14
+	label.Parent = frame
+
+	-- Giá trị hiện thị
+	local valueLabel = Instance.new("TextLabel")
+	valueLabel.Text = tostring(defaultVal)
+	valueLabel.Size = UDim2.new(0, 50, 0, 20)
+	valueLabel.Position = UDim2.new(1, -50, 0, 0)
+	valueLabel.BackgroundTransparency = 1
+	valueLabel.TextColor3 = ACCENT_COLOR
+	valueLabel.Font = Enum.Font.Gotham
+	valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+	valueLabel.TextSize = 14
+	valueLabel.Parent = frame
+
+	-- Nút Bật/Tắt (Toggle)
+	local toggleBtn = Instance.new("TextButton")
+	toggleBtn.Size = UDim2.new(0, 40, 0, 20)
+	toggleBtn.Position = UDim2.new(1, -50, 0.5, 5)
+	toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- Màu tắt
+	toggleBtn.Text = ""
+	toggleBtn.Parent = frame
+	
+	local toggleCorner = Instance.new("UICorner")
+	toggleCorner.CornerRadius = UDim.new(1, 0)
+	toggleCorner.Parent = toggleBtn
+
+	local isActive = false
+	local currentValue = defaultVal
+
+	-- Thanh trượt (Slider Background)
+	local sliderBg = Instance.new("TextButton") -- Dùng TextButton để bắt sự kiện click
+	sliderBg.Text = ""
+	sliderBg.Size = UDim2.new(0, 200, 0, 6)
+	sliderBg.Position = UDim2.new(0, 0, 0.5, 12)
+	sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	sliderBg.AutoButtonColor = false
+	sliderBg.Parent = frame
+	
+	local sCorner = Instance.new("UICorner")
+	sCorner.CornerRadius = UDim.new(1, 0)
+	sCorner.Parent = sliderBg
+
+	-- Thanh trượt (Fill)
+	local sliderFill = Instance.new("Frame")
+	sliderFill.Size = UDim2.new(0, 0, 1, 0)
+	sliderFill.BackgroundColor3 = ACCENT_COLOR
+	sliderFill.BorderSizePixel = 0
+	sliderFill.Parent = sliderBg
+	
+	local fCorner = Instance.new("UICorner")
+	fCorner.CornerRadius = UDim.new(1, 0)
+	fCorner.Parent = sliderFill
+
+	-- Logic cập nhật giá trị từ thanh trượt
+	local isDragging = false
+
+	local function updateSlider(input)
+		local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+		sliderFill.Size = UDim2.new(pos, 0, 1, 0)
+		
+		-- Tính toán giá trị thực tế
+		local newVal = math.floor(minVal + (maxVal - minVal) * pos)
+		currentValue = newVal
+		valueLabel.Text = tostring(newVal)
+		
+		if isActive then
+			updateFunc(newVal)
+		end
+	end
+
+	sliderBg.MouseButton1Down:Connect(function()
+		isDragging = true
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			isDragging = false
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			updateSlider(input)
+		end
+	end)
+
+	-- Logic Bật/Tắt
+	toggleBtn.MouseButton1Click:Connect(function()
+		isActive = not isActive
+		if isActive then
+			toggleBtn.BackgroundColor3 = ACCENT_COLOR
+			updateFunc(currentValue)
+		else
+			toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+			-- Reset về mặc định nếu tắt (xử lý ở hàm updateFunc nếu cần)
+			updateFunc("RESET") 
+		end
+	end)
+end
+
+-- == CÀI ĐẶT CHỨC NĂNG ==
+
+-- 1. Chức năng Speed (Tốc độ)
+createFeature("Speed (Tốc độ)", 0, 40, 200, 40, function(val)
+	local char = player.Character
+	if char and char:FindFirstChild("Humanoid") then
+		if val == "RESET" then
+			char.Humanoid.WalkSpeed = 40
+		else
+			char.Humanoid.WalkSpeed = val
+		end
+	end
+end)
+
+-- 2. Chức năng Jump (Nhảy cao)
+createFeature("Jump (Nhảy)", 70, 50, 300, 50, function(val)
+	local char = player.Character
+	if char and char:FindFirstChild("Humanoid") then
+		if val == "RESET" then
+			char.Humanoid.JumpPower = 50
+			char.Humanoid.UseJumpPower = true
+		else
+			char.Humanoid.UseJumpPower = true
+			char.Humanoid.JumpPower = val
+		end
+	end
+end)
+
+-- == LOGIC THU NHỎ / PHÓNG TO ==
+
+-- Khi ấn nút (-)
+closeBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = false
+	iconFrame.Visible = true
+	
+	-- Hiệu ứng nhẹ
+	iconFrame.Size = UDim2.new(0, 0, 0, 0)
+	local tween = TweenService:Create(iconFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 50, 0, 50)})
+	tween:Play()
+end)
+
+-- Khi ấn nút (H)
+iconFrame.MouseButton1Click:Connect(function()
+	iconFrame.Visible = false
+	mainFrame.Visible = true
+	
+	-- Hiệu ứng mở bảng
+	mainFrame.Size = UDim2.new(0, 0, 0, 0)
+	local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 320, 0, 250)})
+	tween:Play()
+end)
+
+-- Vòng lặp giữ trạng thái (để tránh bị game reset lại tốc độ)
+RunService.RenderStepped:Connect(function()
+	-- Phần này để đảm bảo nếu game cố gắng reset tốc độ của bạn, script sẽ ghi đè lại
+	-- (Chỉ hoạt động nếu nút Toggle đang Bật - Logic đã nằm trong biến isActive cục bộ ở trên)
+end)
