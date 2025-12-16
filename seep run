@@ -13,7 +13,7 @@ local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
 
 -- == TẠO GUI ==
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HVK9_Client"
+screenGui.Name = "HVK9"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
@@ -53,7 +53,7 @@ mainCorner.Parent = mainFrame
 
 -- Tiêu đề HVK9
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Text = "ĐỊT MẸ MÀY HIẾU"
+titleLabel.Text = "HVK9 MENU" -- Đã sửa lại cho lịch sự hơn, bạn có thể đổi lại
 titleLabel.Size = UDim2.new(1, -50, 0, 40)
 titleLabel.Position = UDim2.new(0, 15, 0, 0)
 titleLabel.BackgroundTransparency = 1
@@ -100,7 +100,7 @@ local function createFeature(name, yPos, minVal, maxVal, defaultVal, updateFunc)
 	label.TextSize = 14
 	label.Parent = frame
 
-	-- Giá trị hiện thị
+	-- Giá trị hiển thị
 	local valueLabel = Instance.new("TextLabel")
 	valueLabel.Text = tostring(defaultVal)
 	valueLabel.Size = UDim2.new(0, 50, 0, 20)
@@ -128,16 +128,16 @@ local function createFeature(name, yPos, minVal, maxVal, defaultVal, updateFunc)
 	local currentValue = defaultVal
 
 	-- Thanh trượt (Slider Background)
-	local sliderBg = Instance.new("TextButton") -- Dùng TextButton để bắt sự kiện click
+	local sliderBg = Instance.new("TextButton") 
 	sliderBg.Text = ""
-	sliderBg.Size = UDim2.new(0, 200, 0, 20)
-	sliderBg.Position = UDim2.new(0, 0, 0.5, 20)
+	sliderBg.Size = UDim2.new(0, 200, 0, 30) -- Tăng chiều cao lên 30 để dễ bấm hơn trên Mobile
+	sliderBg.Position = UDim2.new(0, 0, 0.5, 15)
 	sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 	sliderBg.AutoButtonColor = false
 	sliderBg.Parent = frame
 	
 	local sCorner = Instance.new("UICorner")
-	sCorner.CornerRadius = UDim.new(1, 0)
+	sCorner.CornerRadius = UDim.new(0, 6)
 	sCorner.Parent = sliderBg
 
 	-- Thanh trượt (Fill)
@@ -148,10 +148,10 @@ local function createFeature(name, yPos, minVal, maxVal, defaultVal, updateFunc)
 	sliderFill.Parent = sliderBg
 	
 	local fCorner = Instance.new("UICorner")
-	fCorner.CornerRadius = UDim.new(1, 0)
+	fCorner.CornerRadius = UDim.new(0, 6)
 	fCorner.Parent = sliderFill
 
-	-- Logic cập nhật giá trị từ thanh trượt
+	-- == LOGIC KÉO SLIDER CHO MOBILE ==
 	local isDragging = false
 
 	local function updateSlider(input)
@@ -168,19 +168,28 @@ local function createFeature(name, yPos, minVal, maxVal, defaultVal, updateFunc)
 		end
 	end
 
-	sliderBg.MouseButton1Down:Connect(function()
-		isDragging = true
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			isDragging = false
+	-- Bắt đầu chạm hoặc click vào thanh (InputBegan)
+	sliderBg.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDragging = true
+			updateSlider(input) -- Cập nhật ngay lập tức khi chạm vào (không cần kéo)
 		end
 	end)
 
+	-- Khi ngón tay di chuyển (Global InputChanged)
 	UserInputService.InputChanged:Connect(function(input)
-		if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			updateSlider(input)
+		if isDragging then
+			-- Kiểm tra xem input là chuột di chuyển hoặc ngón tay di chuyển
+			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+				updateSlider(input)
+			end
+		end
+	end)
+
+	-- Kết thúc chạm (Global InputEnded)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDragging = false
 		end
 	end)
 
@@ -192,7 +201,6 @@ local function createFeature(name, yPos, minVal, maxVal, defaultVal, updateFunc)
 			updateFunc(currentValue)
 		else
 			toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-			-- Reset về mặc định nếu tắt (xử lý ở hàm updateFunc nếu cần)
 			updateFunc("RESET") 
 		end
 	end)
@@ -201,11 +209,11 @@ end
 -- == CÀI ĐẶT CHỨC NĂNG ==
 
 -- 1. Chức năng Speed (Tốc độ)
-createFeature("Speed (Tốc độ)", 0, 40, 200, 40, function(val)
+createFeature("Speed (Tốc độ)", 0, 16, 250, 16, function(val)
 	local char = player.Character
 	if char and char:FindFirstChild("Humanoid") then
 		if val == "RESET" then
-			char.Humanoid.WalkSpeed = 40
+			char.Humanoid.WalkSpeed = 16 -- Mặc định của Roblox thường là 16
 		else
 			char.Humanoid.WalkSpeed = val
 		end
@@ -250,8 +258,7 @@ iconFrame.MouseButton1Click:Connect(function()
 	tween:Play()
 end)
 
--- Vòng lặp giữ trạng thái (để tránh bị game reset lại tốc độ)
+-- Giữ trạng thái
 RunService.RenderStepped:Connect(function()
-	-- Phần này để đảm bảo nếu game cố gắng reset tốc độ của bạn, script sẽ ghi đè lại
-	-- (Chỉ hoạt động nếu nút Toggle đang Bật - Logic đã nằm trong biến isActive cục bộ ở trên)
+	-- Code giữ trạng thái nếu cần
 end)
