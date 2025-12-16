@@ -1,31 +1,120 @@
--- FPS Boost Script (Safe)
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
--- Lighting tối giản
+-- ===== KHÓA ĐỒ HỌA THẤP NHẤT =====
+pcall(function()
+	settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+end)
+
+-- ===== LIGHTING SIÊU NHẸ =====
 Lighting.GlobalShadows = false
-Lighting.FogEnd = 9e9
+Lighting.FogEnd = 1e10
 Lighting.Brightness = 1
 Lighting.EnvironmentDiffuseScale = 0
 Lighting.EnvironmentSpecularScale = 0
 
--- Tắt hiệu ứng nặng
-for _, v in pairs(Lighting:GetChildren()) do
-	if v:IsA("BlurEffect")
-	or v:IsA("SunRaysEffect")
-	or v:IsA("BloomEffect")
-	or v:IsA("ColorCorrectionEffect")
-	or v:IsA("DepthOfFieldEffect") then
+for _, v in ipairs(Lighting:GetChildren()) do
+	if v:IsA("PostEffect") then
 		v.Enabled = false
 	end
 end
 
--- Giảm chất lượng vật thể
-for _, obj in pairs(Workspace:GetDescendants()) do
-	if obj:IsA("Part") or obj:IsA("MeshPart") then
-		obj.Material = Enum.Material.Plastic
-		obj.Reflectance = 0
+-- ❗ KHÔNG KHÓA CAMERA (GIỮ ZOOM TỰ DO)
+pcall(function()
+	player.CameraMinZoomDistance = 0.5
+	player.CameraMaxZoomDistance = 400
+end)
+
+-- ===== XÓA HOẠT ẢNH (ANIMATION) =====
+local function removeAnimations(character)
+	for _, obj in ipairs(character:GetDescendants()) do
+		if obj:IsA("AnimationTrack") then
+			obj:Stop()
+			obj:Destroy()
+		end
+
+		if obj:IsA("Animator") then
+			obj:Destroy()
+		end
+
+		if obj:IsA("Animation") then
+			obj:Destroy()
+		end
 	end
 end
 
-print("FPS Boost ON")
+-- Khi nhân vật spawn
+if player.Character then
+	removeAnimations(player.Character)
+end
+
+player.CharacterAdded:Connect(function(char)
+	task.wait(1)
+	removeAnimations(char)
+end)
+
+-- ===== DIỆT HIỆU ỨNG / SKILL FX =====
+local function nukeEffects(obj)
+	if obj:IsA("ParticleEmitter")
+	or obj:IsA("Trail")
+	or obj:IsA("Beam")
+	or obj:IsA("Fire")
+	or obj:IsA("Smoke")
+	or obj:IsA("Sparkles") then
+		obj:Destroy()
+	end
+
+	if obj:IsA("PointLight")
+	or obj:IsA("SpotLight")
+	or obj:IsA("SurfaceLight") then
+		obj:Destroy()
+	end
+
+	if obj:IsA("Sound") then
+		obj.Volume = 0
+		obj:Stop()
+	end
+
+	if obj:IsA("Explosion") then
+		obj.BlastPressure = 0
+		obj.BlastRadius = 0
+	end
+
+	if obj:IsA("Decal") or obj:IsA("Texture") then
+		obj.Transparency = 1
+	end
+
+	if obj:IsA("Highlight") then
+		obj:Destroy()
+	end
+
+	if obj:IsA("Model") and obj.Name:lower():find("effect") then
+		obj:Destroy()
+	end
+end
+
+-- ===== TỐI GIẢN PART =====
+local function optimizeParts(obj)
+	if obj:IsA("Part") or obj:IsA("MeshPart") then
+		obj.Material = Enum.Material.Plastic
+		obj.Reflectance = 0
+		obj.CastShadow = false
+	end
+end
+
+-- ===== ÁP DỤNG TOÀN MAP =====
+for _, obj in ipairs(Workspace:GetDescendants()) do
+	nukeEffects(obj)
+	optimizeParts(obj)
+end
+
+-- ===== DIỆT THỨ SINH RA SAU =====
+Workspace.DescendantAdded:Connect(function(obj)
+	task.wait()
+	nukeEffects(obj)
+	optimizeParts(obj)
+end)
+
+print("🔥 ULTRA FPS + NO EFFECT + NO ANIMATION (CAMERA FREE)")
