@@ -53,7 +53,7 @@ mainCorner.Parent = mainFrame
 
 -- Tiêu đề HVK9
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Text = "HVK9 CLIENT"
+titleLabel.Text = "ĐỊT MẸ MÀY HIẾU"
 titleLabel.Size = UDim2.new(1, -50, 0, 40)
 titleLabel.Position = UDim2.new(0, 15, 0, 0)
 titleLabel.BackgroundTransparency = 1
@@ -130,8 +130,8 @@ local function createFeature(name, yPos, minVal, maxVal, defaultVal, updateFunc)
 	-- Thanh trượt (Slider Background)
 	local sliderBg = Instance.new("TextButton") -- Dùng TextButton để bắt sự kiện click
 	sliderBg.Text = ""
-	sliderBg.Size = UDim2.new(0, 200, 0, 6)
-	sliderBg.Position = UDim2.new(0, 0, 0.5, 12)
+	sliderBg.Size = UDim2.new(0, 200, 0, 15)
+	sliderBg.Position = UDim2.new(0, 0, 0.5, 15)
 	sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 	sliderBg.AutoButtonColor = false
 	sliderBg.Parent = frame
