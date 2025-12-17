@@ -11,61 +11,62 @@ local TEXT = Color3.fromRGB(255,255,255)
 
 -- FLY VARIABLES
 local flying = false
-local flySpeed = 50
+local flySpeed = 50 
 local bg, bv
+
+-- NOCLIP VARIABLES
+local nocliping = false
 
 -- GUI SETUP
 local gui = Instance.new("ScreenGui")
-gui.Name = "HVK9_Menu_V2"
-if player.PlayerGui:FindFirstChild("HVK9_Menu_V2") then
-	player.PlayerGui.HVK9_Menu_V2:Destroy()
+gui.Name = "HVK9_Menu_Fixed_Noclip"
+if player.PlayerGui:FindFirstChild("HVK9_Menu_Fixed_Noclip") then
+	player.PlayerGui.HVK9_Menu_Fixed_Noclip:Destroy()
 end
 gui.Parent = player.PlayerGui
 gui.ResetOnSpawn = false
 
--- === MAIN FRAME (MENU LỚN) ===
+-- === MAIN FRAME ===
 local main = Instance.new("Frame", gui)
 main.Name = "MainFrame"
-main.Size = UDim2.new(0,300,0,300)
-main.Position = UDim2.new(0.5,-165,0.5,-210)
+main.Size = UDim2.new(0,330,0,440) 
+main.Position = UDim2.new(0.5,-165,0.5,-220) 
 main.BackgroundColor3 = UI_COLOR
 main.Active = true
 main.Draggable = true 
-main.Visible = true -- Mặc định hiện
+main.Visible = true
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
 
--- === OPEN BUTTON (ÚT VUÔNG NHỎ "H") ===
+-- === OPEN BUTTON ===
 local openBtn = Instance.new("TextButton", gui)
 openBtn.Name = "OpenButton"
 openBtn.Size = UDim2.new(0,50,0,50)
-openBtn.Position = UDim2.new(0, 20, 0.5, -25) -- Vị trí mặc định bên trái
+openBtn.Position = UDim2.new(0, 20, 0.5, -25) 
 openBtn.BackgroundColor3 = UI_COLOR
 openBtn.Text = "H"
 openBtn.TextColor3 = ACCENT
 openBtn.Font = Enum.Font.GothamBold
 openBtn.TextSize = 30
 openBtn.Active = true
-openBtn.Draggable = true -- Cho phép kéo nút nhỏ này đi chỗ khác
-openBtn.Visible = false -- Mặc định ẩn
+openBtn.Draggable = true 
+openBtn.Visible = false
 Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0,12)
--- Thêm viền cho nút nhỏ cho đẹp
 local stroke = Instance.new("UIStroke", openBtn)
 stroke.Color = ACCENT
 stroke.Thickness = 2
 stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
--- === MINIMIZE BUTTON (NÚT THU NHỎ TRÊN MAIN) ===
+-- === MINIMIZE BUTTON ===
 local minBtn = Instance.new("TextButton", main)
 minBtn.Name = "MinButton"
 minBtn.Size = UDim2.new(0, 40, 0, 40)
-minBtn.Position = UDim2.new(1, -45, 0, 5) -- Góc phải trên cùng
+minBtn.Position = UDim2.new(1, -45, 0, 5) 
 minBtn.BackgroundTransparency = 1
 minBtn.Text = "-"
 minBtn.TextColor3 = TEXT
 minBtn.Font = Enum.Font.GothamBold
 minBtn.TextSize = 35
 
--- === LOGIC ĐÓNG/MỞ ===
 minBtn.MouseButton1Click:Connect(function()
 	main.Visible = false
 	openBtn.Visible = true
@@ -92,15 +93,16 @@ container.Size = UDim2.new(1,-30,1,-65)
 container.BackgroundTransparency = 1
 
 local layout = Instance.new("UIListLayout", container)
-layout.Padding = UDim.new(0,12)
+layout.Padding = UDim.new(0,12) 
+layout.FillDirection = Enum.FillDirection.Vertical
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
--- FEATURE FUNCTION
+-- === FEATURE FUNCTION (LOGIC BẬT/TẮT CHUẨN) ===
 local function createFeature(name, min, max, default, callback)
 	local frame = Instance.new("Frame", container)
-	frame.Size = UDim2.new(1,0,0,95)
+	frame.Size = UDim2.new(1,0,0,85) 
 	frame.BackgroundTransparency = 1
 
-	-- LABEL
 	local label = Instance.new("TextLabel", frame)
 	label.Text = name
 	label.Size = UDim2.new(1,-70,0,25)
@@ -110,7 +112,6 @@ local function createFeature(name, min, max, default, callback)
 	label.TextSize = 15
 	label.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- VALUE DISPLAY
 	local value = Instance.new("TextLabel", frame)
 	value.Size = UDim2.new(0,60,0,25)
 	value.Position = UDim2.new(1,-60,0,0)
@@ -120,43 +121,42 @@ local function createFeature(name, min, max, default, callback)
 	value.Font = Enum.Font.GothamBold
 	value.TextSize = 15
 
-	-- SLIDER BACKGROUND
 	local bar = Instance.new("TextButton", frame)
 	bar.Size = UDim2.new(1,-60,0,32)
-	bar.Position = UDim2.new(0,0,0,40)
+	bar.Position = UDim2.new(0,0,0,35) 
 	bar.BackgroundColor3 = Color3.fromRGB(60,60,60)
 	bar.Text = ""
 	bar.AutoButtonColor = false
 	Instance.new("UICorner", bar).CornerRadius = UDim.new(0,8)
 
-	-- SLIDER FILL
 	local fill = Instance.new("Frame", bar)
 	fill.BackgroundColor3 = ACCENT
 	fill.BorderSizePixel = 0
 	Instance.new("UICorner", fill).CornerRadius = UDim.new(0,8)
 
-	-- TOGGLE BUTTON
 	local toggle = Instance.new("TextButton", frame)
 	toggle.Size = UDim2.new(0,40,0,22)
-	toggle.Position = UDim2.new(1,-45,0,48)
+	toggle.Position = UDim2.new(1,-45,0,43) 
 	toggle.BackgroundColor3 = Color3.fromRGB(70,70,70)
 	toggle.Text = ""
 	Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
 
-	-- LOGIC INIT
 	local current = default
 	local active = false
+	
 	local percent = (default - min) / (max - min)
 	fill.Size = UDim2.new(percent, 0, 1, 0)
 
-	-- UPDATE FUNCTION
 	local dragging = false
 	local function update(input)
 		local p = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
 		fill.Size = UDim2.new(p, 0, 1, 0)
 		current = math.floor(min + (max - min) * p)
 		value.Text = tostring(current)
-		callback("VALUE", current)
+		
+        if active then
+		    callback("VALUE", current)
+        end
 	end
 
 	bar.InputBegan:Connect(function(i)
@@ -181,18 +181,58 @@ local function createFeature(name, min, max, default, callback)
 	toggle.MouseButton1Click:Connect(function()
 		active = not active
 		toggle.BackgroundColor3 = active and ACCENT or Color3.fromRGB(70,70,70)
-		callback("TOGGLE", active)
+        
+        if active then
+            callback("VALUE", current) 
+            callback("TOGGLE", true) 
+        else
+            callback("TOGGLE", false)
+        end
 	end)
 end
 
--- --- FEATURES ---
+local function createToggleFeature(name, callback)
+    local frame = Instance.new("Frame", container)
+	frame.Size = UDim2.new(1,0,0,50) 
+	frame.BackgroundTransparency = 1
+
+	local label = Instance.new("TextLabel", frame)
+	label.Text = name
+	label.Size = UDim2.new(1,-70,0,25)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = TEXT
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 15
+	label.TextXAlignment = Enum.TextXAlignment.Left
+    
+	local toggle = Instance.new("TextButton", frame)
+	toggle.Size = UDim2.new(0,50,0,30)
+	toggle.Position = UDim2.new(1,-60,0.5,-15) 
+	toggle.BackgroundColor3 = Color3.fromRGB(70,70,70)
+	toggle.Text = ""
+    toggle.TextSize = 0
+	Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
+
+	local active = false
+	toggle.MouseButton1Click:Connect(function()
+		active = not active
+		toggle.BackgroundColor3 = active and ACCENT or Color3.fromRGB(70,70,70)
+		callback(active)
+	end)
+end
+
+-- --- DEFINITIONS ---
 
 -- SPEED
 createFeature("Speed", 16, 250, 16, function(mode, val)
 	local char = player.Character
 	local h = char and char:FindFirstChild("Humanoid")
-	if h then 
-		if mode == "VALUE" then h.WalkSpeed = val end
+	if not h then return end
+
+	if mode == "VALUE" then 
+        h.WalkSpeed = val
+    elseif mode == "TOGGLE" and val == false then
+        h.WalkSpeed = 16 
 	end
 end)
 
@@ -200,15 +240,17 @@ end)
 createFeature("Jump", 50, 300, 50, function(mode, val)
 	local char = player.Character
 	local h = char and char:FindFirstChild("Humanoid")
-	if h then 
-		if mode == "VALUE" then
-			h.UseJumpPower = true
-			h.JumpPower = val
-		end
+	if not h then return end
+    
+	if mode == "VALUE" then 
+        h.UseJumpPower = true
+        h.JumpPower = val
+    elseif mode == "TOGGLE" and val == false then
+        h.JumpPower = 50 
 	end
 end)
 
--- FLY LOGIC
+-- FLY
 local function startFly()
 	local c = player.Character
 	if not c then return end
@@ -217,7 +259,7 @@ local function startFly()
 	if not hrp or not h then return end
 
 	h.AutoRotate = false
-	h.PlatformStand = true
+	h.PlatformStand = true -- Fly thì tắt vật lý chân
 
 	if bg then bg:Destroy() end
 	if bv then bv:Destroy() end
@@ -238,21 +280,24 @@ local function stopFly()
 	flying = false
 	if bg then bg:Destroy() bg = nil end
 	if bv then bv:Destroy() bv = nil end
-	local h = player.Character and player.Character:FindFirstChild("Humanoid")
+	
+	local c = player.Character
+	local h = c and c:FindFirstChild("Humanoid")
 	if h then 
 		h.PlatformStand = false 
-		h.AutoRotate = true 
+		h.AutoRotate = true
 	end
 end
 
 createFeature("Fly Speed", 0, 300, 50, function(mode, val)
-	if mode == "VALUE" then
-		flySpeed = val
-	elseif mode == "TOGGLE" then
-		if val then startFly() else stopFly() end
-	end
+    if mode == "VALUE" then
+        flySpeed = val
+    elseif mode == "TOGGLE" then
+        if val then startFly() else stopFly() end
+    end
 end)
 
+-- LOGIC FLY (Chỉ xử lý bay)
 RS.RenderStepped:Connect(function()
 	if not flying then return end
 	local c = player.Character
@@ -261,13 +306,39 @@ RS.RenderStepped:Connect(function()
 	if not hrp or not h then return end
 
 	local cam = workspace.CurrentCamera
-	bg.CFrame = cam.CFrame
+	if bg then bg.CFrame = cam.CFrame end
 
 	local m = h.MoveDirection
-	if m.Magnitude == 0 then
-		bv.Velocity = Vector3.zero
-	else
-		local localMove = cam.CFrame:VectorToObjectSpace(m)
-		bv.Velocity = (cam.CFrame.LookVector * -localMove.Z + cam.CFrame.RightVector * localMove.X) * flySpeed
+	
+	if bv and hrp then
+		if m.Magnitude == 0 then
+			bv.Velocity = Vector3.zero
+		else
+			local localMove = cam.CFrame:VectorToObjectSpace(m)
+			bv.Velocity = (cam.CFrame.LookVector * -localMove.Z + cam.CFrame.RightVector * localMove.X) * flySpeed
+		end
 	end
+end)
+
+-- === NOCLIP MỚI (DÙNG CANCOLLIDE = FALSE) ===
+-- Logic này hoạt động hoàn hảo với Speed cao
+RS.Stepped:Connect(function()
+	if nocliping then
+		if player.Character then
+			for _, part in pairs(player.Character:GetDescendants()) do
+				if part:IsA("BasePart") and part.CanCollide == true then
+					part.CanCollide = false
+				end
+			end
+		end
+	end
+end)
+
+createToggleFeature("Noclip (Wall)", function(active)
+	nocliping = active
+end)
+
+player.CharacterAdded:Connect(function(char)
+	char:WaitForChild("HumanoidRootPart")
+	-- Reset biến nếu cần thiết, hoặc để người dùng tự bật lại
 end)
