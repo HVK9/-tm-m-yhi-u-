@@ -6,7 +6,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- --- CẤU HÌNH LÝ DO ---
 -- Bạn hãy viết lý do muốn hiển thị vào bên trong dấu ngoặc kép bên dưới
-local LyDoKick = "địt mẹ mày hiếu" 
+local LyDoKick = "địt mẹ mày hoàng thiên" 
 -- ----------------------
 
 -- Kiểm tra xem LocalPlayer có tồn tại không (để tránh lỗi) và thực hiện Kick
