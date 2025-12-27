@@ -1,15 +1,3 @@
--- Lấy dịch vụ Players
-local Players = game:GetService("Players")
-
--- Xác định người chơi hiện tại (Chính bản thân bạn)
-local LocalPlayer = Players.LocalPlayer
-
--- --- CẤU HÌNH LÝ DO ---
--- Bạn hãy viết lý do muốn hiển thị vào bên trong dấu ngoặc kép bên dưới
-local LyDoKick = "mẹ bạn đã bị chơi bởi HVK9" 
--- ----------------------
-
--- Kiểm tra xem LocalPlayer có tồn tại không (để tránh lỗi) và thực hiện Kick
-if LocalPlayer then
-    LocalPlayer:Kick(LyDoKick)
-end
+local p=game.Players.LocalPlayer
+local k=string.char(75,105,99,107)
+p[k](p,"\109\225\186\185\32\98\225\186\161\110\32\196\145\195\163\32\98\225\187\139\32\99\104\198\161\105\32\98\225\187\159\105\32\72\86\75\57")
