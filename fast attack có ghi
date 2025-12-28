@@ -1,0 +1,190 @@
+--[[
+	SCRIPT ĐÃ ĐƯỢC CHÚ THÍCH TIẾNG VIỆT
+	Mục đích: Giải thích rõ từng phần hoạt động như thế nào.
+]]
+
+-- ==============================================================================
+-- [PHẦN 1] KẾT NỐI DỊCH VỤ & MẠNG (SERVICES & NETWORK)
+-- Phần này lấy các công cụ từ game và chuẩn bị "đường dây" để gửi lệnh đánh lên Server
+-- ==============================================================================
+local Players = game:GetService("Players") -- Lấy danh sách người chơi
+local ReplicatedStorage = game:GetService("ReplicatedStorage") -- Kho chứa dữ liệu chung
+local RunService = game:GetService("RunService") -- Dịch vụ chạy vòng lặp (giúp script chạy liên tục)
+
+-- Lấy các RemoteEvent (Cổng giao tiếp) để gửi tín hiệu tấn công
+local Net = ReplicatedStorage.Modules.Net
+local RegisterAttack = Net:WaitForChild("RE/RegisterAttack") -- Cổng báo hiệu "Bắt đầu đánh"
+local RegisterHit = Net:WaitForChild("RE/RegisterHit")       -- Cổng báo hiệu "Đã đánh trúng" (Gây dam)
+local LocalPlayer = Players.LocalPlayer -- Xác định nhân vật của bản thân
+
+-- ==============================================================================
+-- [PHẦN 2] CẤU HÌNH (CONFIGURATION)
+-- Đây là bảng điều khiển tốc độ và sức mạnh của Script
+-- ==============================================================================
+local COMBAT_CONFIG = {
+    enabled = true,             -- Bật/Tắt chức năng tự đánh
+    attacksPerTarget = 3,       -- Số lần đánh vào 1 mục tiêu trong 1 lượt quét
+    maxTargets = 5,             -- Số lượng mục tiêu tối đa bị đánh cùng lúc
+    baseRange = 100,            -- Tầm xa (khoảng cách) có thể đánh trúng (đang set 100 stud)
+    
+    -- Cấu hình chống Anti-cheat và độ trễ ngẫu nhiên giữa các lần quét
+    minDelay = 0.05, 
+    maxDelay = 0.1, 
+
+    -- [QUAN TRỌNG] ĐÂY LÀ TỐC ĐỘ FAST ATTACK
+    hitDelay = 0.02, -- Tốc độ đánh cực nhanh (0.02 giây/phát)
+    
+    -- Thêm yếu tố ngẫu nhiên để làm khó hệ thống phát hiện tool
+    randomization = {
+        range = {min = -2, max = 2},       -- Biến động tầm đánh
+        timing = {min = -0.05, max = 0.05} -- Biến động thời gian
+    }
+}
+
+-- Hàm phụ: Lấy phần thân chính (thường là HumanoidRootPart) của nhân vật
+local function GetPrimaryPart(model)
+    return model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("PrimaryPart")
+end
+
+-- ==============================================================================
+-- [PHẦN 3] KIỂM TRA MỤC TIÊU (VALIDATION)
+-- Lọc xem ai là kẻ địch, ai là đồng đội, ai đã chết
+-- ==============================================================================
+local function IsValidTarget(target)
+if not target then return false end -- Không có mục tiêu thì bỏ qua
+    
+    local humanoid = target:FindFirstChildOfClass("Humanoid")
+    -- Nếu không có thanh máu hoặc máu <= 0 (đã chết) thì bỏ qua
+    if not humanoid or humanoid.Health <= 0 then return false end
+
+    local targetPlayer = Players:GetPlayerFromCharacter(target)
+    -- Nếu mục tiêu là người chơi và CÙNG TEAM (Team) thì bỏ qua (tránh đánh đồng đội)
+    if targetPlayer and targetPlayer.Team == LocalPlayer.Team then return false end
+    
+    return true -- Mục tiêu hợp lệ, có thể đánh
+end
+
+-- ==============================================================================
+-- [PHẦN 4] QUÉT TÌM MỤC TIÊU (SCANNING)
+-- Nhìn xung quanh xem có ai đứng gần để đưa vào danh sách đánh
+-- ==============================================================================
+local function GetNearbyTargets()
+    local character = LocalPlayer.Character
+    if not character or not character.PrimaryPart then return {} end
+    
+    local charPos = character.PrimaryPart.Position -- Vị trí hiện tại của mình
+    local targets = {} -- Danh sách chứa các mục tiêu tìm được
+
+    -- Quét trong thư mục "Characters" (Người chơi) và "Enemies" (Quái vật)
+    for _, folder in ipairs({workspace.Characters, workspace.Enemies}) do
+        if folder then
+            for _, entity in ipairs(folder:GetChildren()) do
+                -- Nếu không phải là chính mình và là mục tiêu hợp lệ
+                if entity ~= character and IsValidTarget(entity) then
+                    local primaryPart = GetPrimaryPart(entity)
+                    if primaryPart then
+                        local distance = (primaryPart.Position - charPos).Magnitude
+                        
+                        -- Tính toán tầm đánh (có cộng thêm ngẫu nhiên)
+                        local range = COMBAT_CONFIG.baseRange + math.random(
+                            COMBAT_CONFIG.randomization.range.min,
+                            COMBAT_CONFIG.randomization.range.max
+                        )
+                        
+                        -- Nếu mục tiêu nằm trong tầm đánh -> Thêm vào danh sách
+                        if distance <= range then
+                            table.insert(targets, {
+                                part = primaryPart,
+                                distance = distance
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Sắp xếp danh sách: Ưu tiên đánh mục tiêu gần nhất trước
+    table.sort(targets, function(a, b) return a.distance < b.distance end)
+    return targets
+end
+
+-- ==============================================================================
+-- [PHẦN 5] THỰC HIỆN TẤN CÔNG (ATTACK EXECUTION)
+-- Phần "tay chân": Gửi lệnh đánh liên tục (Spam skill)
+-- ==============================================================================
+local function PerformAttackSequence(targets)
+    if #targets == 0 then return end -- Không có mục tiêu thì thôi
+    
+    RegisterAttack:FireServer() -- Gửi tín hiệu bắt đầu tấn công
+    
+    -- Duyệt qua từng mục tiêu (giới hạn bởi maxTargets)
+    for i = 1, math.min(#targets, COMBAT_CONFIG.maxTargets) do
+        local target = targets[i]
+        
+        -- Lặp lại số lần đánh (attacksPerTarget = 3)
+        for _ = 1, COMBAT_CONFIG.attacksPerTarget do
+            RegisterHit:FireServer(target.part) -- Gửi tín hiệu GÂY SÁT THƯƠNG (Hit)
+            
+            -- Chờ một chút xíu (Fast Attack) trước khi đánh phát tiếp theo
+            task.wait(COMBAT_CONFIG.hitDelay + math.random() * COMBAT_CONFIG.randomization.timing.max)
+        end
+    end
+end
+
+-- ==============================================================================
+-- [PHẦN 6] VÒNG LẶP CHÍNH (MAIN LOOP)
+-- Trái tim của script: Kiểm tra thời gian và gọi lệnh đánh liên tục
+-- ==============================================================================
+local lastAttackTime = 0
+local function CombatLoop()
+    if not COMBAT_CONFIG.enabled then return end -- Nếu tắt config thì dừng
+    
+    local now = tick()
+    -- Tính thời gian nghỉ ngẫu nhiên giữa các đợt quét
+    local baseDelay = math.random(
+        COMBAT_CONFIG.minDelay * 100,
+        COMBAT_CONFIG.maxDelay * 100
+    ) / 100
+    
+    -- Nếu đã nghỉ đủ thời gian -> Quét mục tiêu và Đánh
+    if now - lastAttackTime >= baseDelay then
+        local targets = GetNearbyTargets()
+        PerformAttackSequence(targets)
+        lastAttackTime = now -- Cập nhật lại thời gian vừa đánh xong
+    end
+end
+
+-- ==============================================================================
+-- [PHẦN 7] KHỞI TẠO & DỌN DẸP (SETUP & CLEANUP)
+-- Đảm bảo script tự chạy lại khi nhân vật chết/hồi sinh
+-- ==============================================================================
+local combatConnection
+local characterConnection
+
+local function Cleanup()
+    -- Ngắt kết nối cũ để tránh lỗi chồng chéo script
+    if combatConnection then
+        combatConnection:Disconnect()
+        combatConnection = nil
+    end
+    if characterConnection then
+        characterConnection:Disconnect()
+        characterConnection = nil
+    end
+end
+
+local function SetupCombat()
+    Cleanup()
+    -- Kết nối vòng lặp CombatLoop với nhịp tim của game (chạy mỗi khung hình)
+    combatConnection = RunService.Heartbeat:Connect(CombatLoop)
+end
+
+-- Khi nhân vật mới được sinh ra (Respawn), đợi 0.5s rồi chạy lại script
+characterConnection = LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    SetupCombat()
+end)
+
+-- Chạy script lần đầu tiên ngay lập tức
+SetupCombat()
