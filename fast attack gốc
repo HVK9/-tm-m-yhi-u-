@@ -1,0 +1,130 @@
+--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Net = ReplicatedStorage.Modules.Net
+local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+local RegisterHit = Net:WaitForChild("RE/RegisterHit")
+local LocalPlayer = Players.LocalPlayer
+
+local COMBAT_CONFIG = {
+    enabled = true,
+    attacksPerTarget = 3,
+    maxTargets = 5,
+    baseRange = 100,
+    minDelay = 0.05, -- << Some shit to make sure anti cheat won't reach and ping won't grow
+    maxDelay = 0.1, -- << Some shit to make sure anti cheat won't reach and ping won't grow
+    hitDelay = 0.02, -- << Some shit to make sure anti cheat won't reach and ping won't grow
+    randomization = {
+        range = {min = -2, max = 2}, -- << Some shit to make sure anti cheat won't reach and ping won't grow
+        timing = {min = -0.05, max = 0.05} -- << Some shit to make sure anti cheat won't reach and ping won't grow
+    }
+}
+
+local function GetPrimaryPart(model)
+    return model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("PrimaryPart")
+end
+
+local function IsValidTarget(target)
+    if not target then return false end
+    
+    local humanoid = target:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+
+    local targetPlayer = Players:GetPlayerFromCharacter(target)
+    if targetPlayer and targetPlayer.Team == LocalPlayer.Team then return false end
+    
+    return true
+end
+
+local function GetNearbyTargets()
+    local character = LocalPlayer.Character
+    if not character or not character.PrimaryPart then return {} end
+    
+    local charPos = character.PrimaryPart.Position
+    local targets = {}
+
+    for _, folder in ipairs({workspace.Characters, workspace.Enemies}) do
+        if folder then
+            for _, entity in ipairs(folder:GetChildren()) do
+                if entity ~= character and IsValidTarget(entity) then
+                    local primaryPart = GetPrimaryPart(entity)
+                    if primaryPart then
+                        local distance = (primaryPart.Position - charPos).Magnitude
+                        local range = COMBAT_CONFIG.baseRange + math.random(
+                            COMBAT_CONFIG.randomization.range.min,
+                            COMBAT_CONFIG.randomization.range.max
+                        )
+                        
+                        if distance <= range then
+                            table.insert(targets, {
+                                part = primaryPart,
+                                distance = distance
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    table.sort(targets, function(a, b) return a.distance < b.distance end)
+    return targets
+end
+local function PerformAttackSequence(targets)
+    if #targets == 0 then return end
+    RegisterAttack:FireServer()
+    for i = 1, math.min(#targets, COMBAT_CONFIG.maxTargets) do
+        local target = targets[i]
+        for _ = 1, COMBAT_CONFIG.attacksPerTarget do
+            RegisterHit:FireServer(target.part)
+            task.wait(COMBAT_CONFIG.hitDelay + math.random() * COMBAT_CONFIG.randomization.timing.max)
+        end
+    end
+end
+
+local lastAttackTime = 0
+local function CombatLoop()
+    if not COMBAT_CONFIG.enabled then return end
+    
+    local now = tick()
+    local baseDelay = math.random(
+        COMBAT_CONFIG.minDelay * 100,
+        COMBAT_CONFIG.maxDelay * 100
+    ) / 100
+    
+    if now - lastAttackTime >= baseDelay then
+        local targets = GetNearbyTargets()
+        PerformAttackSequence(targets)
+        lastAttackTime = now
+    end
+end
+
+local combatConnection
+local characterConnection
+
+local function Cleanup()
+    if combatConnection then
+        combatConnection:Disconnect()
+        combatConnection = nil
+    end
+    if characterConnection then
+        characterConnection:Disconnect()
+        characterConnection = nil
+    end
+end
+
+local function SetupCombat()
+    Cleanup()
+    
+    combatConnection = RunService.Heartbeat:Connect(CombatLoop)
+end
+
+characterConnection = LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    SetupCombat()
+end)
+
+SetupCombat()
