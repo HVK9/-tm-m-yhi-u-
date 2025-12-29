@@ -1,8 +1,7 @@
 --[[
-    ULTIMATE HYBRID V14: NO LAG & SMART BRING
-    - Fix Lag: Loại bỏ Deep Scan, chỉ quét thông minh vùng chứa quái.
-    - Fix Gom Quái: Player bay trên cao, quái bị đè xuống đất dưới chân.
-    - Filter: Lọc tuyệt đối NPC rác (Shop, Quest, Guide...).
+    ULTIMATE HYBRID V12: OPTIMIZED SCAN & UI FIX
+    - Fix lỗi tràn UI: Danh sách quái nằm trong khung cuộn riêng biệt.
+    - Quét quái thông minh: Tự tìm folder chứa quái (Enemies/Mobs) để quét toàn map.
 ]]
 
 local Players = game:GetService("Players")
@@ -13,211 +12,282 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
+local Net = ReplicatedStorage:WaitForChild("Modules", 10) and ReplicatedStorage.Modules:WaitForChild("Net", 10) 
+-- Fallback nếu game dùng hệ thống khác, tránh lỗi script
+if not Net then warn("Không tìm thấy Net module, vui lòng kiểm tra lại game hỗ trợ") end 
 
--- --- HỆ THỐNG NET (ANTI-ERROR) ---
-local Net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
--- Nếu không tìm thấy đúng đường dẫn, thử tìm đệ quy nhẹ
-if not Net then 
-    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
-        if v.Name == "Net" and v:IsA("Folder") then Net = v; break end
-    end
-end
-
-local RegisterAttack = Net and (Net:FindFirstChild("RE/RegisterAttack") or Net:FindFirstChild("RegisterAttack"))
-local RegisterHit = Net and (Net:FindFirstChild("RE/RegisterHit") or Net:FindFirstChild("RegisterHit"))
+local RegisterAttack = Net and Net:FindFirstChild("RE/RegisterAttack")
+local RegisterHit = Net and Net:FindFirstChild("RE/RegisterHit")
 
 -- --- CẤU HÌNH ---
 local CONFIG = {
-    AutoFarm = false, -- Gom chung Teleport + Bring + Attack vào 1 nút cho tiện
+    IsTeleporting = false,
     SelectedMob = nil,
-    Height = 25, -- Độ cao mặc định (Player sẽ bay cao hơn quái 25 stud)
-    DistFromPlayer = 15, -- Quái sẽ bị gom cách chân player 15 stud (để không bị bug vào người)
-    RefreshRate = 3, -- Quét chậm lại (3 giây/lần) để GIẢM LAG tối đa
-    AttackRange = 350, -- Tầm đánh
-    
-    -- Danh sách đen (NPC không được đánh)
-    Blacklist = {
-        "Quest", "Shop", "Store", "Guide", "Nurse", "Doctor", "Sailor", 
-        "Blacksmith", "Dealer", "Giver", "Dummy", "Training"
-    }
+    Offsets = {X = 0, Y = 12, Z = 0},
+    RefreshRate = 1.5, -- Giảm tốc độ refresh nhẹ để đỡ lag
+    AttackEnabled = false,
+    MaxTargets = 5,
+    AttackRange = 120, -- Tăng tầm đánh chút xíu
+    HitDelay = 0.05, -- Chậm lại chút để server nhận damage tốt hơn
+    NPC_Blacklist = {"Quest", "Shop", "Nurse", "Sailor", "Blacksmith", "Doctor", "Guide"}
 }
 
 if _G.UltimateHybridUI then _G.UltimateHybridUI:Destroy() end
 
--- --- HÀM TỐI ƯU ---
-
--- 1. Tìm Folder chứa quái (Giúp không phải quét cả map)
-local EnemyFolder = nil
-local function UpdateEnemyFolder()
-    local names = {"Enemies", "Mobs", "Monsters", "NPCs", "Live"}
-    for _, n in pairs(names) do
-        if Workspace:FindFirstChild(n) then EnemyFolder = Workspace[n]; return end
-    end
-    EnemyFolder = Workspace -- Nếu không có folder riêng thì quét tất cả
-end
-UpdateEnemyFolder()
-
--- 2. Kiểm tra có phải quái đánh được không
-local function IsValidMob(v)
-    if not v or not v.Parent then return false end
-    if v.Name == LocalPlayer.Name then return false end -- Không đánh bản thân
+-- --- HÀM HỖ TRỢ QUÉT QUÁI THÔNG MINH ---
+local function IsAttackable(v)
+    if not v:IsA("Model") then return false end
+    if v == LocalPlayer.Character then return false end
+    if Players:GetPlayerFromCharacter(v) then return false end -- Bỏ qua người chơi khác
     
-    local hum = v:FindFirstChild("Humanoid")
+    local hum = v:FindFirstChildOfClass("Humanoid")
     local root = v:FindFirstChild("HumanoidRootPart")
     
     if hum and root and hum.Health > 0 then
-        -- Lọc NPC qua tên
-        local n = v.Name:lower()
-        for _, bad in pairs(CONFIG.Blacklist) do
-            if string.find(n, bad:lower()) then return false end
+        local nameLower = v.Name:lower()
+        for _, bName in pairs(CONFIG.NPC_Blacklist) do
+            if string.find(nameLower, bName:lower()) then return false end
         end
-        -- Lọc Player khác
-        if Players:GetPlayerFromCharacter(v) then return false end
-        
         return true
     end
     return false
 end
 
--- --- GIAO DIỆN UI (CHỐNG TRÀN) ---
+-- Hàm tìm folder chứa quái để quét nhanh hơn
+local function GetEnemyFolder()
+    -- Ưu tiên tìm các folder tên phổ biến trong game RPG
+    local targets = {"Enemies", "Mobs", "Monsters", "NPCs", "Live"}
+    for _, name in pairs(targets) do
+        local f = Workspace:FindFirstChild(name)
+        if f then return f end
+    end
+    return Workspace -- Nếu không thấy thì đành quét cả Workspace
+end
+
+-- --- GIAO DIỆN UI (ĐÃ FIX TRÀN) ---
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "UltimateHybridUI"
 pcall(function() ScreenGui.Parent = CoreGui end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer.PlayerGui end
 _G.UltimateHybridUI = ScreenGui
 
-local Main = Instance.new("Frame", ScreenGui)
+local Main = Instance.new("Frame")
+Main.Parent = ScreenGui
 Main.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-Main.Position = UDim2.new(0.05, 0, 0.2, 0)
-Main.Size = UDim2.new(0, 280, 0, 400)
+Main.Position = UDim2.new(0.1, 0, 0.2, 0)
+Main.Size = UDim2.new(0, 300, 0, 450) -- Kích thước cố định
 Main.BorderSizePixel = 0
-Instance.new("UICorner", Main, UDim.new(0, 6))
+Instance.new("UICorner", Main)
 
--- Header
-local Header = Instance.new("Frame", Main)
-Header.BackgroundColor3 = Color3.fromRGB(45, 50, 60)
-Header.Size = UDim2.new(1, 0, 0, 35)
-Instance.new("UICorner", Header, UDim.new(0, 6))
-local Title = Instance.new("TextLabel", Header)
-Title.Text = "AUTO FARM V14 - NO LAG"
-Title.Size = UDim2.new(1,0,1,0); Title.BackgroundTransparency=1; Title.Font=Enum.Font.GothamBlack; Title.TextColor3=Color3.new(1,1,1); Title.TextSize=14
+-- Tiêu đề
+local Title = Instance.new("Frame")
+Title.Parent = Main
+Title.BackgroundColor3 = Color3.fromRGB(50, 55, 75)
+Title.Size = UDim2.new(1, 0, 0, 40)
+local TitleText = Instance.new("TextLabel")
+TitleText.Parent = Title
+TitleText.BackgroundTransparency = 1
+TitleText.Size = UDim2.new(1, -10, 1, 0)
+TitleText.Position = UDim2.new(0, 10, 0, 0)
+TitleText.Font = Enum.Font.GothamBlack
+TitleText.Text = "AUTO FARM V12 - ANTI OVERFLOW"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.TextSize = 14
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
 
--- Control Area
-local Controls = Instance.new("Frame", Main)
-Controls.BackgroundTransparency=1; Controls.Position=UDim2.new(0,0,0,40); Controls.Size=UDim2.new(1,0,0,120)
-local UIList = Instance.new("UIListLayout", Controls); UIList.HorizontalAlignment=Enum.HorizontalAlignment.Center; UIList.Padding=UDim.new(0,8)
+-- KHU VỰC 1: CÁC NÚT ĐIỀU KHIỂN (CỐ ĐỊNH Ở TRÊN)
+local ControlArea = Instance.new("Frame")
+ControlArea.Parent = Main
+ControlArea.BackgroundTransparency = 1
+ControlArea.Position = UDim2.new(0, 0, 0, 45)
+ControlArea.Size = UDim2.new(1, 0, 0, 170) -- Chiều cao cố định cho nút
+local ControlLayout = Instance.new("UIListLayout", ControlArea)
+ControlLayout.Padding = UDim.new(0, 8)
+ControlLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-local function MakeBtn(text, col, cb)
-    local b = Instance.new("TextButton", Controls)
-    b.Size = UDim2.new(0.9,0,0,40); b.BackgroundColor3=col; b.Text=text; b.TextColor3=Color3.new(1,1,1); b.Font=Enum.Font.GothamBold; Instance.new("UICorner", b)
-    b.MouseButton1Click:Connect(function() cb(b) end)
-    return b
+local function CreateButton(text, color, parent, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.Size = UDim2.new(0.9, 0, 0, 45)
+    btn.BackgroundColor3 = color
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(function() callback(btn) end)
+    return btn
 end
 
--- Nút Auto Farm (Gộp tất cả)
-MakeBtn("AUTO FARM: OFF", Color3.fromRGB(200, 50, 50), function(b)
-    if not CONFIG.SelectedMob then b.Text="CHỌN QUÁI TRƯỚC!"; task.wait(1); b.Text="AUTO FARM: OFF"; return end
-    CONFIG.AutoFarm = not CONFIG.AutoFarm
-    b.Text = CONFIG.AutoFarm and "AUTO FARM: ON ["..CONFIG.SelectedMob.."]" or "AUTO FARM: OFF"
-    b.BackgroundColor3 = CONFIG.AutoFarm and Color3.fromRGB(50, 200, 100) or Color3.fromRGB(200, 50, 50)
+-- Nút Attack
+CreateButton("AUTO ATTACK: OFF", Color3.fromRGB(60, 60, 70), ControlArea, function(btn)
+    CONFIG.AttackEnabled = not CONFIG.AttackEnabled
+    btn.Text = CONFIG.AttackEnabled and "AUTO ATTACK: ON" or "AUTO ATTACK: OFF"
+    btn.BackgroundColor3 = CONFIG.AttackEnabled and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 60, 70)
 end)
 
--- Slider chỉnh độ cao
-local HFrame = Instance.new("Frame", Controls); HFrame.Size=UDim2.new(0.9,0,0,30); HFrame.BackgroundColor3=Color3.fromRGB(35,35,45); Instance.new("UICorner", HFrame)
-local HLbl = Instance.new("TextLabel", HFrame); HLbl.Size=UDim2.new(1,0,1,0); HLbl.BackgroundTransparency=1; HLbl.Text="Độ cao bay: "..CONFIG.Height; HLbl.TextColor3=Color3.new(1,1,1); HLbl.Font=Enum.Font.GothamBold
-local HBtn = Instance.new("TextButton", HFrame); HBtn.Size=UDim2.new(1,0,1,0); HBtn.BackgroundTransparency=1; HBtn.Text=""
-HBtn.MouseButton1Click:Connect(function() 
-    CONFIG.Height = (CONFIG.Height >= 50) and 10 or (CONFIG.Height + 10)
-    HLbl.Text = "Độ cao bay: " .. CONFIG.Height 
+-- Nút Teleport
+CreateButton("TELEPORT MOB: OFF", Color3.fromRGB(40, 150, 80), ControlArea, function(btn)
+    if not CONFIG.SelectedMob then 
+        btn.Text = "⚠️ HÃY CHỌN QUÁI BÊN DƯỚI!" 
+        task.wait(1) 
+        btn.Text = "TELEPORT MOB: OFF" 
+        return 
+    end
+    CONFIG.IsTeleporting = not CONFIG.IsTeleporting
+    btn.Text = CONFIG.IsTeleporting and "STOP TELEPORT ["..CONFIG.SelectedMob.."]" or "TELEPORT MOB: OFF"
+    btn.BackgroundColor3 = CONFIG.IsTeleporting and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(40, 150, 80)
 end)
 
--- Danh sách mob (Scrolling)
-local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Position=UDim2.new(0,0,0,170); Scroll.Size=UDim2.new(1,0,1,-175); Scroll.BackgroundTransparency=1; Scroll.ScrollBarThickness=3
-local SList = Instance.new("UIListLayout", Scroll); SList.HorizontalAlignment=Enum.HorizontalAlignment.Center; SList.Padding=UDim.new(0,2)
-SList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() Scroll.CanvasSize = UDim2.new(0,0,0,SList.AbsoluteContentSize.Y+10) end)
+-- Slider Y Offset
+local YFrame = Instance.new("Frame")
+YFrame.Parent = ControlArea
+YFrame.Size = UDim2.new(0.9, 0, 0, 50)
+YFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Instance.new("UICorner", YFrame)
 
--- --- LOGIC CỐT LÕI ---
+local YLabel = Instance.new("TextLabel")
+YLabel.Parent = YFrame
+YLabel.BackgroundTransparency = 1
+YLabel.Size = UDim2.new(1, 0, 0, 25)
+YLabel.Font = Enum.Font.GothamBold
+YLabel.Text = "Độ cao bay: " .. CONFIG.Offsets.Y
+YLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+YLabel.TextSize = 12
 
-local function RefreshList()
+local YBar = Instance.new("Frame")
+YBar.Parent = YFrame
+YBar.Size = UDim2.new(0.8, 0, 0, 4)
+YBar.Position = UDim2.new(0.1, 0, 0.7, 0)
+YBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+local YFill = Instance.new("Frame", YBar)
+YFill.Size = UDim2.new(0.6, 0, 1, 0)
+YFill.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+YFill.BorderSizePixel = 0
+
+local YTrigger = Instance.new("TextButton", YFrame)
+YTrigger.BackgroundTransparency = 1
+YTrigger.Size = UDim2.new(1,0,1,0)
+YTrigger.Text = ""
+YTrigger.MouseButton1Down:Connect(function()
+    local mouse = UserInputService:GetMouseLocation()
+    local function UpdateSlider()
+        local rX = math.clamp((UserInputService:GetMouseLocation().X - YBar.AbsolutePosition.X) / YBar.AbsoluteSize.X, 0, 1)
+        YFill.Size = UDim2.new(rX, 0, 1, 0)
+        CONFIG.Offsets.Y = math.floor(-20 + (50 * rX)) -- Range từ -20 đến 30
+        YLabel.Text = "Độ cao bay: " .. CONFIG.Offsets.Y
+    end
+    UpdateSlider()
+    local move = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then UpdateSlider() end
+    end)
+    local release
+    release = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            move:Disconnect(); release:Disconnect()
+        end
+    end)
+end)
+
+-- KHU VỰC 2: DANH SÁCH QUÁI (SCROLLING FRAME RIÊNG BIỆT)
+local ListLabel = Instance.new("TextLabel", Main)
+ListLabel.Text = "DANH SÁCH QUÁI (Click để chọn):"
+ListLabel.Font = Enum.Font.GothamBold
+ListLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+ListLabel.TextSize = 11
+ListLabel.Size = UDim2.new(1, 0, 0, 20)
+ListLabel.Position = UDim2.new(0, 0, 0, 220) -- Nằm dưới ControlArea
+ListLabel.BackgroundTransparency = 1
+
+local ScrollList = Instance.new("ScrollingFrame")
+ScrollList.Parent = Main
+ScrollList.BackgroundTransparency = 1
+ScrollList.Position = UDim2.new(0, 0, 0, 245)
+ScrollList.Size = UDim2.new(1, 0, 1, -250) -- Tự động lấp đầy phần dưới cùng
+ScrollList.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollList.ScrollBarThickness = 4
+
+local ListLayout = Instance.new("UIListLayout", ScrollList)
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Tự động chỉnh độ dài vùng cuộn
+ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollList.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- --- LOGIC ---
+
+-- Cập nhật danh sách quái (UI Update)
+local function RefreshMobList()
     local mobs = {}
-    -- Quét nhẹ nhàng
-    local items = EnemyFolder:GetChildren()
-    for _, v in ipairs(items) do
-        if IsValidMob(v) then
-            mobs[v.Name] = (mobs[v.Name] or 0) + 1
+    local scanFolder = GetEnemyFolder() -- Chỉ quét folder này
+    
+    -- Quét descendants của folder mục tiêu
+    for _, v in pairs(scanFolder:GetDescendants()) do
+        if v:IsA("Model") and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") then
+            if IsAttackable(v) then
+                mobs[v.Name] = (mobs[v.Name] or 0) + 1
+            end
         end
     end
     
-    for _,c in pairs(Scroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+    -- Xóa nút cũ
+    for _, c in pairs(ScrollList:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
     
-    -- Sắp xếp theo tên
-    local sortedNames = {}
-    for n in pairs(mobs) do table.insert(sortedNames, n) end
-    table.sort(sortedNames)
-
-    for _, name in ipairs(sortedNames) do
-        local count = mobs[name]
-        local b = Instance.new("TextButton", Scroll)
-        b.Size = UDim2.new(0.9,0,0,25); b.BackgroundColor3 = (CONFIG.SelectedMob == name) and Color3.fromRGB(0,120,215) or Color3.fromRGB(40,40,50)
-        b.Text = name .. " [" .. count .. "]"; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.Gotham; b.TextSize=12; Instance.new("UICorner", b)
-        b.MouseButton1Click:Connect(function() CONFIG.SelectedMob = name; RefreshList() end)
+    -- Tạo nút mới
+    for name, count in pairs(mobs) do
+        local btn = Instance.new("TextButton")
+        btn.Parent = ScrollList
+        btn.Size = UDim2.new(0.9, 0, 0, 30)
+        btn.BackgroundColor3 = (CONFIG.SelectedMob == name) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(40, 40, 50)
+        btn.Text = "  " .. name .. " [" .. count .. "]"
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 12
+        Instance.new("UICorner", btn)
+        
+        btn.MouseButton1Click:Connect(function()
+            CONFIG.SelectedMob = name
+            RefreshMobList() -- Refresh để cập nhật màu nút đã chọn
+        end)
     end
 end
 
--- Loop Auto Farm
-RunService.Stepped:Connect(function()
-    if CONFIG.AutoFarm and CONFIG.SelectedMob then
-        local p = LocalPlayer.Character
-        if not p or not p:FindFirstChild("HumanoidRootPart") then return end
-        
-        local myRoot = p.HumanoidRootPart
-        
-        -- 1. Tìm mục tiêu chính (Con gần nhất) để bay tới
-        local mainTarget = nil
-        local minDist = math.huge
-        local allTargets = {} -- Danh sách tất cả quái cùng tên để gom
-        
-        for _, v in ipairs(EnemyFolder:GetChildren()) do
-            if v.Name == CONFIG.SelectedMob and IsValidMob(v) then
-                table.insert(allTargets, v)
-                local d = (myRoot.Position - v.HumanoidRootPart.Position).Magnitude
-                if d < minDist then minDist = d; mainTarget = v end
-            end
-        end
-        
-        -- 2. Xử lý vị trí & Gom quái
-        if mainTarget then
-            -- A. GIỮ NGƯỜI CHƠI TRÊN CAO (Vị trí quái + Height)
-            local safePos = mainTarget.HumanoidRootPart.Position + Vector3.new(0, CONFIG.Height, 0)
-            myRoot.CFrame = CFrame.new(safePos, mainTarget.HumanoidRootPart.Position) -- Nhìn xuống quái
-            myRoot.Velocity = Vector3.new(0,0,0) -- Chống rơi
-            
-            -- B. GOM QUÁI (BRING) XUỐNG DƯỚI CHÂN
-            -- Vị trí "nhốt" quái: Dưới chân nhân vật (cách CONFIG.DistFromPlayer)
-            local trapPos = myRoot.Position - Vector3.new(0, CONFIG.DistFromPlayer, 0)
-            
-            for _, mob in ipairs(allTargets) do
-                local mRoot = mob:FindFirstChild("HumanoidRootPart")
-                if mRoot then
-                    -- Dịch chuyển quái vào rọ
-                    mRoot.CFrame = CFrame.new(trapPos)
-                    mRoot.CanCollide = false -- Tắt va chạm để chúng lồng vào nhau, dễ đánh aoe
-                    mRoot.Velocity = Vector3.new(0,0,0) -- Khóa chuyển động quái
-                    
-                    -- Xoay quái cho đẹp (tùy chọn)
-                    -- mRoot.CFrame = CFrame.lookAt(trapPos, myRoot.Position)
+-- Logic tấn công
+task.spawn(function()
+    while task.wait() do
+        if CONFIG.AttackEnabled and RegisterAttack and RegisterHit then
+            local p = LocalPlayer.Character
+            if p and p:FindFirstChild("HumanoidRootPart") then
+                local targets = {}
+                -- Quét xung quanh người chơi để đánh
+                for _, v in pairs(Workspace:GetChildren()) do
+                    if v:IsA("Model") and v ~= p and IsAttackable(v) then
+                         if (v.HumanoidRootPart.Position - p.HumanoidRootPart.Position).Magnitude <= CONFIG.AttackRange then
+                             table.insert(targets, v.HumanoidRootPart)
+                         end
+                    end
+                    -- Nếu game để quái trong folder Enemies
+                    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+                    if enemiesFolder then
+                        for _, e in pairs(enemiesFolder:GetChildren()) do
+                             if e:IsA("Model") and IsAttackable(e) and (e.HumanoidRootPart.Position - p.HumanoidRootPart.Position).Magnitude <= CONFIG.AttackRange then
+                                 table.insert(targets, e.HumanoidRootPart)
+                             end
+                        end
+                    end
                 end
-            end
-            
-            -- C. TỰ ĐỘNG ĐÁNH (ATTACK)
-            if RegisterAttack and RegisterHit then
-                RegisterAttack:FireServer()
-                for _, mob in ipairs(allTargets) do
-                    local mRoot = mob:FindFirstChild("HumanoidRootPart")
-                    if mRoot and (mRoot.Position - myRoot.Position).Magnitude < CONFIG.AttackRange then
-                         RegisterHit:FireServer(mRoot)
+                
+                if #targets > 0 then
+                    RegisterAttack:FireServer()
+                    for i=1, math.min(#targets, CONFIG.MaxTargets) do
+                        RegisterHit:FireServer(targets[i])
+                        task.wait(CONFIG.HitDelay)
                     end
                 end
             end
@@ -225,15 +295,66 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- Loop Refresh UI (Chậm để đỡ lag)
-task.spawn(function()
-    while task.wait(CONFIG.RefreshRate) do
-        if _G.UltimateHybridUI then RefreshList() end
+-- Logic Teleport
+RunService.Stepped:Connect(function()
+    if CONFIG.IsTeleporting and CONFIG.SelectedMob then
+        local p = LocalPlayer.Character
+        if p and p:FindFirstChild("HumanoidRootPart") then
+            local target = nil
+            local minDist = math.huge
+            local scanFolder = GetEnemyFolder()
+            
+            for _, v in pairs(scanFolder:GetDescendants()) do
+                if v.Name == CONFIG.SelectedMob and IsAttackable(v) then
+                    local dist = (p.HumanoidRootPart.Position - v.HumanoidRootPart.Position).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        target = v
+                    end
+                end
+            end
+            
+            if target then
+                -- Bay tới
+                p.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(CONFIG.Offsets.X, CONFIG.Offsets.Y, CONFIG.Offsets.Z)
+                p.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+                
+                -- Khóa góc nhìn vào quái để không bị chóng mặt (Tuỳ chọn)
+                -- Workspace.CurrentCamera.CFrame = CFrame.new(Workspace.CurrentCamera.CFrame.Position, target.HumanoidRootPart.Position)
+            end
+        end
     end
 end)
 
--- Drag UI
+-- Vòng lặp refresh danh sách UI
+task.spawn(function()
+    while task.wait(CONFIG.RefreshRate) do
+        if _G.UltimateHybridUI and _G.UltimateHybridUI.Parent then
+            RefreshMobList()
+        else
+            break
+        end
+    end
+end)
+
+-- Kéo thả UI
 local dragging, dragStart, startPos
-Header.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; dragStart=input.Position; startPos=Main.Position end end)
-UserInputService.InputChanged:Connect(function(input) if dragging and input.UserInputType==Enum.UserInputType.MouseMovement then local delta=input.Position-dragStart; Main.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y) end end)
-UserInputService.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+Title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
