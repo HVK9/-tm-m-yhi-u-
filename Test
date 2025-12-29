@@ -1,0 +1,451 @@
+--[[
+    ULTIMATE HYBRID V13: WEAPON AUTO-EQUIP & MINIMIZE UI
+    - Added: Chức năng tự động cầm vũ khí chỉ định.
+    - Added: Nút thu nhỏ/phóng to UI.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Net = ReplicatedStorage:WaitForChild("Modules", 10) and ReplicatedStorage.Modules:WaitForChild("Net", 10) 
+if not Net then warn("Không tìm thấy Net module, vui lòng kiểm tra lại game hỗ trợ") end 
+
+local RegisterAttack = Net and Net:FindFirstChild("RE/RegisterAttack")
+local RegisterHit = Net and Net:FindFirstChild("RE/RegisterHit")
+
+-- --- CẤU HÌNH ---
+local CONFIG = {
+    IsTeleporting = false,
+    SelectedMob = nil,
+    Offsets = {X = 0, Y = 12, Z = 0},
+    RefreshRate = 1.5,
+    AttackEnabled = false,
+    MaxTargets = 5,
+    AttackRange = 120,
+    HitDelay = 0.05,
+    NPC_Blacklist = {"Quest", "Shop", "Nurse", "Sailor", "Blacksmith", "Doctor", "Guide"},
+    -- Cấu hình mới
+    AutoEquip = false,
+    TargetWeapon = "" -- Tên vũ khí muốn auto cầm
+}
+
+if _G.UltimateHybridUI then _G.UltimateHybridUI:Destroy() end
+
+-- --- HÀM HỖ TRỢ ---
+local function IsAttackable(v)
+    if not v:IsA("Model") then return false end
+    if v == LocalPlayer.Character then return false end
+    if Players:GetPlayerFromCharacter(v) then return false end
+    
+    local hum = v:FindFirstChildOfClass("Humanoid")
+    local root = v:FindFirstChild("HumanoidRootPart")
+    
+    if hum and root and hum.Health > 0 then
+        local nameLower = v.Name:lower()
+        for _, bName in pairs(CONFIG.NPC_Blacklist) do
+            if string.find(nameLower, bName:lower()) then return false end
+        end
+        return true
+    end
+    return false
+end
+
+local function GetEnemyFolder()
+    local targets = {"Enemies", "Mobs", "Monsters", "NPCs", "Live"}
+    for _, name in pairs(targets) do
+        local f = Workspace:FindFirstChild(name)
+        if f then return f end
+    end
+    return Workspace 
+end
+
+-- --- GIAO DIỆN UI ---
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "UltimateHybridUI"
+pcall(function() ScreenGui.Parent = CoreGui end)
+if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer.PlayerGui end
+_G.UltimateHybridUI = ScreenGui
+
+local Main = Instance.new("Frame")
+Main.Parent = ScreenGui
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+Main.Position = UDim2.new(0.1, 0, 0.2, 0)
+Main.Size = UDim2.new(0, 300, 0, 480) -- Tăng chiều cao một chút để chứa thêm nút
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true -- Để khi thu nhỏ không bị lòi nội dung
+Instance.new("UICorner", Main)
+
+-- Tiêu đề
+local Title = Instance.new("Frame")
+Title.Parent = Main
+Title.BackgroundColor3 = Color3.fromRGB(50, 55, 75)
+Title.Size = UDim2.new(1, 0, 0, 40)
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Parent = Title
+TitleText.BackgroundTransparency = 1
+TitleText.Size = UDim2.new(1, -50, 1, 0)
+TitleText.Position = UDim2.new(0, 10, 0, 0)
+TitleText.Font = Enum.Font.GothamBlack
+TitleText.Text = "HVK9 - HYBRID V13"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.TextSize = 14
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+-- NÚT THU NHỎ UI (MINIMIZE)
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Parent = Title
+MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+MinimizeBtn.Position = UDim2.new(1, -35, 0, 5)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.WHITE
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.TextSize = 18
+Instance.new("UICorner", MinimizeBtn, 4)
+
+local isMinimized = false
+MinimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        -- Thu nhỏ lại
+        Main:TweenSize(UDim2.new(0, 300, 0, 40), "Out", "Quad", 0.3, true)
+        MinimizeBtn.Text = "+"
+        MinimizeBtn.BackgroundColor3 = Color3.fromRGB(40, 150, 80)
+    else
+        -- Mở rộng ra
+        Main:TweenSize(UDim2.new(0, 300, 0, 480), "Out", "Quad", 0.3, true)
+        MinimizeBtn.Text = "-"
+        MinimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+end)
+
+-- KHU VỰC 1: CÁC NÚT ĐIỀU KHIỂN
+local ControlArea = Instance.new("Frame")
+ControlArea.Parent = Main
+ControlArea.BackgroundTransparency = 1
+ControlArea.Position = UDim2.new(0, 0, 0, 45)
+ControlArea.Size = UDim2.new(1, 0, 0, 230) -- Tăng size khu vực control
+local ControlLayout = Instance.new("UIListLayout", ControlArea)
+ControlLayout.Padding = UDim.new(0, 8)
+ControlLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local function CreateButton(text, color, parent, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.BackgroundColor3 = color
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(function() callback(btn) end)
+    return btn
+end
+
+-- Nút Attack
+CreateButton("AUTO ATTACK: OFF", Color3.fromRGB(60, 60, 70), ControlArea, function(btn)
+    CONFIG.AttackEnabled = not CONFIG.AttackEnabled
+    btn.Text = CONFIG.AttackEnabled and "AUTO ATTACK: ON" or "AUTO ATTACK: OFF"
+    btn.BackgroundColor3 = CONFIG.AttackEnabled and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 60, 70)
+end)
+
+-- --- PHẦN CHỌN VŨ KHÍ (MỚI) ---
+local WeaponFrame = Instance.new("Frame")
+WeaponFrame.Parent = ControlArea
+WeaponFrame.Size = UDim2.new(0.9, 0, 0, 40)
+WeaponFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Instance.new("UICorner", WeaponFrame)
+
+local WeaponInput = Instance.new("TextBox")
+WeaponInput.Parent = WeaponFrame
+WeaponInput.Size = UDim2.new(0.6, -5, 1, 0)
+WeaponInput.Position = UDim2.new(0, 5, 0, 0)
+WeaponInput.BackgroundTransparency = 1
+WeaponInput.Text = ""
+WeaponInput.PlaceholderText = "Nhập tên vũ khí..."
+WeaponInput.TextColor3 = Color3.WHITE
+WeaponInput.Font = Enum.Font.Gotham
+WeaponInput.TextSize = 13
+WeaponInput.TextXAlignment = Enum.TextXAlignment.Left
+
+WeaponInput.FocusLost:Connect(function()
+    CONFIG.TargetWeapon = WeaponInput.Text
+end)
+
+local WeaponBtn = Instance.new("TextButton")
+WeaponBtn.Parent = WeaponFrame
+WeaponBtn.Size = UDim2.new(0.35, 0, 0.8, 0)
+WeaponBtn.Position = UDim2.new(0.63, 0, 0.1, 0)
+WeaponBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+WeaponBtn.Text = "EQUIP: OFF"
+WeaponBtn.TextColor3 = Color3.WHITE
+WeaponBtn.Font = Enum.Font.GothamBold
+WeaponBtn.TextSize = 11
+Instance.new("UICorner", WeaponBtn)
+
+WeaponBtn.MouseButton1Click:Connect(function()
+    CONFIG.AutoEquip = not CONFIG.AutoEquip
+    CONFIG.TargetWeapon = WeaponInput.Text -- Cập nhật text lần cuối
+    WeaponBtn.Text = CONFIG.AutoEquip and "EQUIP: ON" or "EQUIP: OFF"
+    WeaponBtn.BackgroundColor3 = CONFIG.AutoEquip and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 60, 70)
+end)
+
+-- Nút Teleport
+CreateButton("TELEPORT MOB: OFF", Color3.fromRGB(40, 150, 80), ControlArea, function(btn)
+    if not CONFIG.SelectedMob then 
+        btn.Text = "⚠️ HÃY CHỌN QUÁI!" 
+        task.wait(1) 
+        btn.Text = "TELEPORT MOB: OFF" 
+        return 
+    end
+    CONFIG.IsTeleporting = not CONFIG.IsTeleporting
+    btn.Text = CONFIG.IsTeleporting and "STOP TELEPORT ["..CONFIG.SelectedMob.."]" or "TELEPORT MOB: OFF"
+    btn.BackgroundColor3 = CONFIG.IsTeleporting and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(40, 150, 80)
+end)
+
+-- Slider Y Offset
+local YFrame = Instance.new("Frame")
+YFrame.Parent = ControlArea
+YFrame.Size = UDim2.new(0.9, 0, 0, 40)
+YFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Instance.new("UICorner", YFrame)
+
+local YLabel = Instance.new("TextLabel")
+YLabel.Parent = YFrame
+YLabel.BackgroundTransparency = 1
+YLabel.Size = UDim2.new(1, 0, 0, 20)
+YLabel.Font = Enum.Font.GothamBold
+YLabel.Text = "Độ cao bay: " .. CONFIG.Offsets.Y
+YLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+YLabel.TextSize = 12
+
+local YBar = Instance.new("Frame")
+YBar.Parent = YFrame
+YBar.Size = UDim2.new(0.8, 0, 0, 4)
+YBar.Position = UDim2.new(0.1, 0, 0.7, 0)
+YBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+local YFill = Instance.new("Frame", YBar)
+YFill.Size = UDim2.new(0.6, 0, 1, 0)
+YFill.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+YFill.BorderSizePixel = 0
+
+local YTrigger = Instance.new("TextButton", YFrame)
+YTrigger.BackgroundTransparency = 1
+YTrigger.Size = UDim2.new(1,0,1,0)
+YTrigger.Text = ""
+YTrigger.MouseButton1Down:Connect(function()
+    local mouse = UserInputService:GetMouseLocation()
+    local function UpdateSlider()
+        local rX = math.clamp((UserInputService:GetMouseLocation().X - YBar.AbsolutePosition.X) / YBar.AbsoluteSize.X, 0, 1)
+        YFill.Size = UDim2.new(rX, 0, 1, 0)
+        CONFIG.Offsets.Y = math.floor(-20 + (50 * rX))
+        YLabel.Text = "Độ cao bay: " .. CONFIG.Offsets.Y
+    end
+    UpdateSlider()
+    local move = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then UpdateSlider() end
+    end)
+    local release
+    release = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+             move:Disconnect(); release:Disconnect()
+        end
+    end)
+end)
+
+-- KHU VỰC 2: DANH SÁCH QUÁI
+local ListLabel = Instance.new("TextLabel", Main)
+ListLabel.Text = "DANH SÁCH QUÁI (Click để chọn):"
+ListLabel.Font = Enum.Font.GothamBold
+ListLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+ListLabel.TextSize = 11
+ListLabel.Size = UDim2.new(1, 0, 0, 20)
+ListLabel.Position = UDim2.new(0, 0, 0, 280) -- Đẩy xuống dưới một chút
+ListLabel.BackgroundTransparency = 1
+
+local ScrollList = Instance.new("ScrollingFrame")
+ScrollList.Parent = Main
+ScrollList.BackgroundTransparency = 1
+ScrollList.Position = UDim2.new(0, 0, 0, 305)
+ScrollList.Size = UDim2.new(1, 0, 1, -310)
+ScrollList.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollList.ScrollBarThickness = 4
+
+local ListLayout = Instance.new("UIListLayout", ScrollList)
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollList.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- --- LOGIC ---
+
+-- Hàm Auto Equip Weapon
+task.spawn(function()
+    while task.wait(0.5) do -- Kiểm tra mỗi 0.5 giây
+        if CONFIG.AutoEquip and CONFIG.TargetWeapon ~= "" then
+            local p = LocalPlayer.Character
+            local backpack = LocalPlayer.Backpack
+            if p and backpack then
+                -- Kiểm tra xem đang cầm chưa
+                local currentTool = p:FindFirstChildOfClass("Tool")
+                local needEquip = true
+                
+                if currentTool then
+                    -- Nếu đang cầm đúng vũ khí thì thôi
+                    if string.find(currentTool.Name:lower(), CONFIG.TargetWeapon:lower()) then
+                        needEquip = false
+                    end
+                end
+
+                if needEquip then
+                    -- Tìm trong Balo
+                    for _, tool in pairs(backpack:GetChildren()) do
+                        if tool:IsA("Tool") and string.find(tool.Name:lower(), CONFIG.TargetWeapon:lower()) then
+                            p.Humanoid:EquipTool(tool)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+local function RefreshMobList()
+    local mobs = {}
+    local scanFolder = GetEnemyFolder()
+    
+    for _, v in pairs(scanFolder:GetDescendants()) do
+        if v:IsA("Model") and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") then
+             if IsAttackable(v) then
+                mobs[v.Name] = (mobs[v.Name] or 0) + 1
+            end
+        end
+    end
+    
+    for _, c in pairs(ScrollList:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    
+    for name, count in pairs(mobs) do
+        local btn = Instance.new("TextButton")
+        btn.Parent = ScrollList
+        btn.Size = UDim2.new(0.9, 0, 0, 30)
+        btn.BackgroundColor3 = (CONFIG.SelectedMob == name) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(40, 40, 50)
+        btn.Text = "  " .. name .. " [" .. count .. "]"
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+         btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 12
+        Instance.new("UICorner", btn)
+        
+        btn.MouseButton1Click:Connect(function()
+            CONFIG.SelectedMob = name
+            RefreshMobList()
+        end)
+    end
+end
+
+-- Logic tấn công
+task.spawn(function()
+    while task.wait() do
+        if CONFIG.AttackEnabled and RegisterAttack and RegisterHit then
+            local p = LocalPlayer.Character
+            if p and p:FindFirstChild("HumanoidRootPart") then
+                local targets = {}
+                for _, v in pairs(Workspace:GetChildren()) do
+                    if v:IsA("Model") and v ~= p and IsAttackable(v) then
+                         if (v.HumanoidRootPart.Position - p.HumanoidRootPart.Position).Magnitude <= CONFIG.AttackRange then
+                              table.insert(targets, v.HumanoidRootPart)
+                         end
+                    end
+                    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+                    if enemiesFolder then
+                        for _, e in pairs(enemiesFolder:GetChildren()) do
+                             if e:IsA("Model") and IsAttackable(e) and (e.HumanoidRootPart.Position - p.HumanoidRootPart.Position).Magnitude <= CONFIG.AttackRange then
+                                  table.insert(targets, e.HumanoidRootPart)
+                             end
+                        end
+                    end
+                 end
+                
+                if #targets > 0 then
+                    RegisterAttack:FireServer()
+                    for i=1, math.min(#targets, CONFIG.MaxTargets) do
+                         RegisterHit:FireServer(targets[i])
+                        task.wait(CONFIG.HitDelay)
+                    end
+                end
+            end
+        end
+     end
+end)
+
+-- Logic Teleport
+RunService.Stepped:Connect(function()
+    if CONFIG.IsTeleporting and CONFIG.SelectedMob then
+        local p = LocalPlayer.Character
+        if p and p:FindFirstChild("HumanoidRootPart") then
+            local target = nil
+            local minDist = math.huge
+            local scanFolder = GetEnemyFolder()
+            
+             for _, v in pairs(scanFolder:GetDescendants()) do
+                if v.Name == CONFIG.SelectedMob and IsAttackable(v) then
+                    local dist = (p.HumanoidRootPart.Position - v.HumanoidRootPart.Position).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        target = v
+                    end
+                end
+            end
+            
+             if target then
+                p.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(CONFIG.Offsets.X, CONFIG.Offsets.Y, CONFIG.Offsets.Z)
+                p.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(CONFIG.RefreshRate) do
+        if _G.UltimateHybridUI and _G.UltimateHybridUI.Parent then
+            RefreshMobList()
+        else
+             break
+        end
+    end
+end)
+
+-- Kéo thả UI
+local dragging, dragStart, startPos
+Title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                 dragging = false
+            end
+        end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
