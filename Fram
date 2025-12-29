@@ -66,7 +66,7 @@ end
 
 -- --- GIAO DIỆN UI (ĐÃ FIX TRÀN) ---
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UltimateHybridUI"
+ScreenGui.Name = "HVK9"
 pcall(function() ScreenGui.Parent = CoreGui end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer.PlayerGui end
 _G.UltimateHybridUI = ScreenGui
@@ -90,7 +90,7 @@ TitleText.BackgroundTransparency = 1
 TitleText.Size = UDim2.new(1, -10, 1, 0)
 TitleText.Position = UDim2.new(0, 10, 0, 0)
 TitleText.Font = Enum.Font.GothamBlack
-TitleText.Text = "AUTO FARM V12 - ANTI OVERFLOW"
+TitleText.Text = "HVK9"
 TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleText.TextSize = 14
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
