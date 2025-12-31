@@ -1,1 +1,386 @@
+--[[ Enhanced HVK9: Flight-to-Mob, Auto-Equip, Improved UI
+     - Flight to selected mob (no teleport)
+     - Scrollable mob list with proper sizing
+     - Auto equip based on weapon category
+     - Placeholder data hooks to be replaced with real game data
+]]
 
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Backpack = LocalPlayer:WaitForChild("Backpack")
+
+-- Replace or extend with your real Net/RemoteEvent names
+local Net = ReplicatedStorage:FindFirstChild("Modules")
+local NetRemote = Net and Net:FindFirstChild("Net")
+
+-- Configuration
+local CONFIG = {
+    FlightEnabled = false,
+    SelectedMob = nil,
+    FlightSpeed = 60, -- studs per second
+    FlightAltitude = 12,
+    MaxTargets = 5,
+    AttackRange = 120,
+    AutoEquipEnabled = true,
+    NPC_Blacklist = {"Quest", "Shop", "Nurse", "Sailor", "Blacksmith", "Doctor", "Guide"},
+    UI = {
+        Width = 310,
+        Height = 480
+    }
+}
+
+-- UI: Prevent overflow by constraining main frame
+if _G.UltimateHybridUI then _G.UltimateHybridUI:Destroy() end
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "UltimateHybridUI"
+pcall(function() ScreenGui.Parent = CoreGui end)
+if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+_G.UltimateHybridUI = ScreenGui
+
+local Main = Instance.new("Frame", ScreenGui)
+Main.BackgroundColor3 = Color3.fromRGB(25,25,30)
+Main.Position = UDim2.new(0.1,0,0.2,0)
+Main.Size = UDim2.new(0, CONFIG.UI.Width, 0, CONFIG.UI.Height)
+Main.BorderSizePixel = 0
+Instance.new("UICorner", Main)
+
+-- Title
+local Title = Instance.new("Frame", Main)
+Title.BackgroundColor3 = Color3.fromRGB(50,55,75)
+Title.Size = UDim2.new(1,0,0,40)
+Instance.new("UICorner", Title)
+
+local TitleText = Instance.new("TextLabel", Title)
+TitleText.BackgroundTransparency = 1
+TitleText.Size = UDim2.new(1,-10,1,0)
+TitleText.Position = UDim2.new(0,5,0,0)
+TitleText.Font = Enum.Font.GothamBlack
+TitleText.Text = "HVK9"
+TitleText.TextColor3 = Color3.fromRGB(255,255,255)
+TitleText.TextSize = 14
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Flight toggle and status
+local ControlArea = Instance.new("Frame", Main)
+ControlArea.BackgroundTransparency = 1
+ControlArea.Position = UDim2.new(0,0,0,45)
+ControlArea.Size = UDim2.new(1,0,0,180)
+
+-- Button factory
+local function CreateButton(text, color, parent, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.Size = UDim2.new(0.9,0,0,40)
+    btn.BackgroundColor3 = color
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.TextSize = 14
+    Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- Auto Flight toggle
+local flightBtn = CreateButton("FLIGHT: OFF", Color3.fromRGB(60,60,70), ControlArea, function()
+    CONFIG.FlightEnabled = not CONFIG.FlightEnabled
+    flightBtn.Text = CONFIG.FlightEnabled and "FLIGHT: ON" or "FLIGHT: OFF"
+    flightBtn.BackgroundColor3 = CONFIG.FlightEnabled and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60,60,70)
+end)
+
+-- Auto Equip toggle
+local equipBtn = CreateButton("AUTO-EQUIP: ON", Color3.fromRGB(60,60,70), ControlArea, function()
+    CONFIG.AutoEquipEnabled = not CONFIG.AutoEquipEnabled
+    equipBtn.Text = CONFIG.AutoEquipEnabled and "AUTO-EQUIP: ON" or "AUTO-EQUIP: OFF"
+    equipBtn.BackgroundColor3 = CONFIG.AutoEquipEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60,60,70)
+end)
+
+-- Flight altitude slider (Y)
+local YFrame = Instance.new("Frame", ControlArea)
+YFrame.Size = UDim2.new(0.9,0,0,50)
+YFrame.BackgroundColor3 = Color3.fromRGB(35,35,45)
+Instance.new("UICorner", YFrame)
+
+local YLabel = Instance.new("TextLabel", YFrame)
+YLabel.BackgroundTransparency = 1
+YLabel.Size = UDim2.new(1,0,0,20)
+YLabel.Font = Enum.Font.GothamBold
+YLabel.Text = "Flight Altitude: " .. tostring(CONFIG.FlightAltitude)
+YLabel.TextColor3 = Color3.fromRGB(200,200,200)
+YLabel.TextSize = 12
+
+-- Simple vertical slider (value 0..30) for altitude
+local YBar = Instance.new("Frame", YFrame)
+YBar.Size = UDim2.new(0.8,0,0,4)
+YBar.Position = UDim2.new(0.1,0,0.65,0)
+YBar.BackgroundColor3 = Color3.fromRGB(20,20,20)
+local YFill = Instance.new("Frame", YBar)
+YFill.Size = UDim2.new(0.6,0,1,0)
+YFill.BackgroundColor3 = Color3.fromRGB(0,200,255)
+YFill.BorderSizePixel = 0
+
+local YTrigger = Instance.new("TextButton", YFrame)
+YTrigger.BackgroundTransparency = 1
+YTrigger.Size = UDim2.new(1,0,1,0)
+YTrigger.Text = ""
+YTrigger.MouseButton1Down:Connect(function()
+    local function UpdateSlider()
+        local mouseX = UserInputService:GetMouseLocation().X
+        local barX = YBar.AbsolutePosition.X
+        local barW = YBar.AbsoluteSize.X
+        local rX = math.clamp((mouseX - barX) / barW, 0, 1)
+        YFill.Size = UDim2.new(rX, 0, 1, 0)
+        CONFIG.FlightAltitude = math.floor( -6 + (36 * rX) ) -- range ~ -6 .. 30
+        YLabel.Text = "Flight Altitude: " .. tostring(CONFIG.FlightAltitude)
+    end
+    UpdateSlider()
+    local moveConn = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then UpdateSlider() end
+    end)
+    local releaseConn
+    releaseConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            moveConn:Disconnect()
+            releaseConn:Disconnect()
+        end
+    end)
+end)
+
+-- Mob List (scrollable)
+local ListLabel = Instance.new("TextLabel", Main)
+ListLabel.Text = "DANH SÁCH QUÁI (Click để chọn):"
+ListLabel.Font = Enum.Font.GothamBold
+ListLabel.TextColor3 = Color3.fromRGB(150,150,150)
+ListLabel.TextSize = 11
+ListLabel.Size = UDim2.new(1,0,0,20)
+ListLabel.Position = UDim2.new(0,0,0,230)
+ListLabel.BackgroundTransparency = 1
+
+local ScrollList = Instance.new("ScrollingFrame", Main)
+ScrollList.BackgroundTransparency = 1
+ScrollList.Position = UDim2.new(0,0,0,250)
+ScrollList.Size = UDim2.new(1,0,1,-250)
+ScrollList.CanvasSize = UDim2.new(0,0,0,0)
+ScrollList.ScrollBarThickness = 6
+
+local ListLayout = Instance.new("UIListLayout", ScrollList)
+ListLayout.Padding = UDim.new(0,6)
+ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollList.CanvasSize = UDim2.new(0,0,0, ListLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Helper: IsAttackable (placeholder; replace with your own logic)
+local function IsAttackable(v)
+    if not v:IsA("Model") then return false end
+    if v == LocalPlayer.Character then return false end
+    if Players:GetPlayerFromCharacter(v) then return false end
+    local hum = v:FindFirstChildOfClass("Humanoid")
+    local root = v:FindFirstChild("HumanoidRootPart")
+    if hum and root and hum.Health > 0 then
+        local nameLower = v.Name:lower()
+        for _, b in pairs(CONFIG.NPC_Blacklist) do
+            if string.find(nameLower, b:lower()) then return false end
+        end
+        return true
+    end
+    return false
+end
+
+-- Placeholder: GetEnemyFolder (replace with actual folder names in your game)
+local function GetEnemyFolder()
+    local candidates = {"Enemies", "Mobs", "Monsters", "NPCs", "Live"}
+    for _, name in ipairs(candidates) do
+        local f = Workspace:FindFirstChild(name)
+        if f then return f end
+    end
+    return Workspace
+end
+
+-- Build Mob List (dynamic)
+local mobNodes = {} -- name -> count
+local function RefreshMobList()
+    mobNodes = {}
+    local folder = GetEnemyFolder()
+    for _, obj in pairs(folder:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+            if IsAttackable(obj) then
+                local name = obj.Name
+                mobNodes[name] = (mobNodes[name] or 0) + 1
+            end
+        end
+    end
+
+    -- Clear
+    for _, c in pairs(ScrollList:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+
+    -- Create
+    for name, count in pairs(mobNodes) do
+        local btn = Instance.new("TextButton")
+        btn.Parent = ScrollList
+        btn.Size = UDim2.new(0.9,0,0, 28)
+        btn.BackgroundColor3 = (CONFIG.SelectedMob == name) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(40,40,50)
+        btn.Text = "  " .. name .. " [" .. count .. "]"
+        btn.TextColor3 = Color3.fromRGB(255,255,255)
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 12
+        Instance.new("UICorner", btn)
+
+        btn.MouseButton1Click:Connect(function()
+            CONFIG.SelectedMob = name
+            RefreshMobList() -- refresh highlights
+        end)
+    end
+end
+
+-- Initial refresh
+RefreshMobList()
+
+-- Flight logic (per-frame)
+local function GetTargetRootPart()
+    if not CONFIG.SelectedMob then return nil end
+    local folder = GetEnemyFolder()
+    for _, m in pairs(folder:GetDescendants()) do
+        if m:IsA("Model") and m.Name == CONFIG.SelectedMob and m:FindFirstChild("HumanoidRootPart") then
+            return m.HumanoidRootPart
+        end
+    end
+    return nil
+end
+
+local flightConnection
+local function StartFlightToTarget(target)
+    if not target then return end
+    local hrp = target
+    local playerHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not playerHRP or not hrp then return end
+
+    if flightConnection then flightConnection:Disconnect() end
+    flightConnection = RunService.RenderStepped:Connect(function(dt)
+        if not CONFIG.FlightEnabled then return end
+        local tp = hrp.Position
+        local apos = playerHRP.Position
+        -- Destination is the mob's position with altitude
+        local dest = Vector3.new(tp.X, tp.Y + CONFIG.FlightAltitude, tp.Z)
+        local dir = (dest - apos)
+        local dist = dir.Magnitude
+        if dist < 4 then
+            -- Arrived near target
+            return
+        end
+        local step = math.min(CONFIG.FlightSpeed * dt, dist)
+        local move = dir.Unit * step
+        playerHRP.CFrame = CFrame.new(apos + move)
+        -- Optional: align character to movement
+        LocalPlayer.Character:SetPrimaryPartCFrame(CFrame.new(playerHRP.Position, dest))
+    end)
+end
+
+local function StopFlight()
+    if flightConnection then flightConnection:Disconnect() flightConnection = nil end
+end
+
+-- Hook: When selected mob changes, start/stop flight accordingly
+spawn(function()
+    while true do
+        if CONFIG.FlightEnabled and CONFIG.SelectedMob then
+            local targetRoot = GetTargetRootPart()
+            if targetRoot then StartFlightToTarget(targetRoot) else StopFlight() end
+        else
+            StopFlight()
+        end
+        wait(0.2)
+    end
+end)
+
+-- Auto Equip logic (placeholder: adapt to your data)
+local function DetermineWeaponCategory(tool)
+    if not tool then return nil end
+    local name = tool.Name:lower()
+    if string.find(name, "sword") then
+        return "Sword"
+    elseif string.find(name, "gun") or string.find(name, "pistol") or string.find(name, "rifle") then
+        return "Gun"
+    elseif string.find(name, "blade") or string.find(name, "knife") or string.find(name, "katana") then
+        return "Melee"
+    elseif string.find(name, "wheel") or string.find(name, "slug") then
+        return "Wheel"
+    end
+    return nil
+end
+
+local function AutoEquip()
+    if not CONFIG.AutoEquipEnabled then return end
+    -- Prioritize: Sword > Gun > Melee > Wheel > any
+    local preferred = { "Sword", "Gun", "Melee", "Wheel" }
+    local items = {}
+
+    -- Collect tools from Backpack
+    for _, tool in pairs(Backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            local cat = DetermineWeaponCategory(tool)
+            table.insert(items, {Tool = tool, Cat = cat})
+        end
+    end
+
+    -- Try to equip first available in preferred order
+    for _, cat in ipairs(preferred) do
+        for _, entry in ipairs(items) do
+            if entry.Cat == cat then
+                LocalPlayer.Character.Humanoid:EquipTool(entry.Tool)
+                return
+            end
+        end
+    end
+
+    -- Fallback: equip first tool if any
+    if #items > 0 then
+        LocalPlayer.Character.Humanoid:EquipTool(items[1].Tool)
+    end
+end
+
+-- Auto-equip loop
+spawn(function()
+    while true do
+        AutoEquip()
+        wait(2) -- adjust as needed
+    end
+end)
+
+-- Recalculate Refresh Mob List periodically (in case new mobs spawn)
+spawn(function()
+    while true do
+        RefreshMobList()
+        wait(5)
+    end
+end)
+
+-- Optional: UI feedback for selected mob
+spawn(function()
+    while true do
+        -- Update list item colors to reflect selection
+        for _, btn in pairs(ScrollList:GetChildren()) do
+            if btn:IsA("TextButton") then
+                local name = btn.Text:gsub("^  ", ""):match("^(.-) %[")
+                if name and name == CONFIG.SelectedMob then
+                    btn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+                else
+                    btn.BackgroundColor3 = Color3.fromRGB(40,40,50)
+                end
+            end
+        end
+        wait(0.5)
+    end
+end)
