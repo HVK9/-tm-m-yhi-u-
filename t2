@@ -139,7 +139,7 @@ local MOBS_DB = {
     {Name = "Sun Kissed Warrior", Level = 2500, Pos = Vector3.new(-16000, 10, 700)},
 
     -- Boss đặc biệt
-    {Name = "boss hiếu liếm", Level = "Lọ Đến Chí Tôn", Pos = Vector3.new(0, 0, 0)},
+    {Name = "boss hiếu liếm", Level = "Lọ Đế Chí Tôn", Pos = Vector3.new(0, 0, 0)},
     {Name = "huy gay", Level = "Gay Ko Đối Thủ", Pos = Vector3.new(0, 0, 0)},
     {Name = "hải xesa", Level = "Đại cao bằng", Pos = Vector3.new(0, 0, 0)},
 }
