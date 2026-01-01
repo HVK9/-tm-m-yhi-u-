@@ -146,7 +146,7 @@ local MOBS_DB = {
 
 -- --- HỆ THỐNG UI ---
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HVK9_Ultimate_UI"
+ScreenGui.Name = "HVK-9"
 if pcall(function() ScreenGui.Parent = CoreGui end) then else ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 -- 1. Nút Mini Toggle
@@ -156,7 +156,7 @@ ToggleBtn.Parent = ScreenGui
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 ToggleBtn.Position = UDim2.new(0.02, 0, 0.2, 0)
 ToggleBtn.Size = UDim2.new(0, 40, 0, 40)
-ToggleBtn.Text = "UI"
+ToggleBtn.Text = "H-9"
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.Font = Enum.Font.SourceSansBold
 ToggleBtn.TextSize = 18
@@ -182,7 +182,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Parent = MainFrame
 TitleLabel.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
 TitleLabel.Size = UDim2.new(1, 0, 0, 40)
-TitleLabel.Text = "HVK9 ULTIMATE V14"
+TitleLabel.Text = "HVK-9"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleLabel.Font = Enum.Font.FredokaOne
 TitleLabel.TextSize = 20
@@ -393,4 +393,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-StarterGui:SetCore("SendNotification", {Title = "HVK9 V14"; Text = "Fast Attack REAL đã kích hoạt!"; Duration = 5})
+StarterGui:SetCore("SendNotification", {Title = "HVK-9"; Text = "Fast Attack REAL đã kích hoạt!"; Duration = 5})
