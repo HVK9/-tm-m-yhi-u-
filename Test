@@ -42,37 +42,126 @@ local CONFIG = {
 -- --- DATA TỌA ĐỘ (GIỮ NGUYÊN TỪ V10) ---
 local MOBS_DB = {
     -- SEA 1
-    {Name = "Bandit", Level = 5, Pos = Vector3.new(1060, 16, 1550)},
+    -- Starter Island (0 - 10)
+    -- Chọn phe Marine hoặc Pirate sẽ có quái khác nhau, đây là Pirate Starter
+    {Name = "Bandit", Level = 5, Pos = Vector3.new(1060, 16, 1550)}, 
+-- Jungle (15 - 30)
     {Name = "Monkey", Level = 14, Pos = Vector3.new(-1600, 36, 150)},
-    {Name = "Gorilla", Level = 20, Pos = Vector3.new(-1240, 6, 480)},
-    {Name = "Pirate", Level = 35, Pos = Vector3.new(-1200, 4, 3860)},
-    {Name = "Brute", Level = 45, Pos = Vector3.new(-1150, 4, 4000)},
-    {Name = "Desert Bandit", Level = 60, Pos = Vector3.new(900, 6, 4390)},
-    {Name = "Snow Bandit", Level = 90, Pos = Vector3.new(1350, 87, -1300)},
-    {Name = "Sky Bandit", Level = 150, Pos = Vector3.new(-4900, 720, -2600)},
-    {Name = "Toga Warrior", Level = 225, Pos = Vector3.new(-1650, 7, -2900)},
-    {Name = "Military Soldier", Level = 300, Pos = Vector3.new(-5400, 10, 8500)},
-    {Name = "Fishman Warrior", Level = 375, Pos = Vector3.new(61100, 5, 1700)},
-    {Name = "Galley Pirate", Level = 625, Pos = Vector3.new(5230, 4, 4000)},
+    {Name = "Gorilla", Level = 20, Pos = Vector3.new(-1240, 6, -500)},
+    {Name = "boss Gorilla King", Level = 25, Pos = Vector3.new(-1130, 6, -450)}, -- Boss
+-- Pirate Village (30 - 60)
+    {Name = "Pirate", Level = 35, Pos = Vector3.new(-1130, 4, 3850)},
+    {Name = "Brute", Level = 45, Pos = Vector3.new(-1300, 4, 3850)},
+    {Name = "boss Bobby", Level = 55, Pos = Vector3.new(-1130, 4, 3850)}, -- Boss
+-- Desert (60 - 90)
+    {Name = "Desert Bandit", Level = 60, Pos = Vector3.new(900, 6, 4380)},
+    {Name = "Desert Officer", Level = 70, Pos = Vector3.new(1560, 6, 4380)},
+-- Frozen Village (90 - 120)
+    {Name = "Snow Bandit", Level = 90, Pos = Vector3.new(1380, 87, -1300)},
+    {Name = "Snowman", Level = 100, Pos = Vector3.new(1380, 87, -1500)},
+    {Name = "boss Yeti", Level = 105, Pos = Vector3.new(1380, 87, -1500)}, -- Boss
+-- Marine Fortress (120 - 150)
+    {Name = "Chief Petty Officer", Level = 120, Pos = Vector3.new(-4900, 20, 4200)},
+    {Name = "boss Vice Admiral", Level = 130, Pos = Vector3.new(-4800, 20, 4300)}, -- Boss
+-- Skylands (150 - 250) - Tầng 1
+    {Name = "Sky Bandit", Level = 150, Pos = Vector3.new(-4900, 296, -2900)},
+    {Name = "Dark Master", Level = 175, Pos = Vector3.new(-5200, 296, -2900)},
+-- Prison (190 - 250)
+    {Name = "Prisoner", Level = 190, Pos = Vector3.new(5300, 1, 400)},
+    {Name = "Dangerous Prisoner", Level = 210, Pos = Vector3.new(5600, 1, 400)},
+    {Name = "boss Warden", Level = 220, Pos = Vector3.new(5800, 1, 400)}, -- Boss
+    {Name = "boss Chief Warden", Level = 230, Pos = Vector3.new(5600, 1, 400)}, -- Boss
+    {Name = "boss Swan", Level = 240, Pos = Vector3.new(5400, 1, 400)}, -- Boss
+-- Colosseum (225 - 300)
+    {Name = "Toga Warrior", Level = 225, Pos = Vector3.new(-1600, 7, -2800)},
+    {Name = "Gladiator", Level = 275, Pos = Vector3.new(-1400, 7, -3100)},
+-- Magma Village (300 - 375)
+    {Name = "Military Soldier", Level = 300, Pos = Vector3.new(-5400, 7, 8500)},
+    {Name = "Military Spy", Level = 325, Pos = Vector3.new(-5800, 7, 8800)},
+    {Name = "boss Magma Admiral", Level = 350, Pos = Vector3.new(-5600, 7, 8500)}, -- Boss
+-- Underwater City (375 - 450)
+    -- Lưu ý: Cần bay vào khu vực xoáy nước hoặc cổng dịch chuyển
+--{Name = "Fishman Warrior", Level = 375, Pos = Vector3.new(61120, 18, 1570)}, 
+--{Name = "Fishman Commando", Level = 400, Pos = Vector3.new(61120, 18, 1570)},
+--{Name = "Fishman Lord", Level = 425, Pos = Vector3.new(61120, 18, 1570)}, -- Boss
+-- Skylands (450 - 575) - Tầng trên cao (Upper Skylands)
+    {Name = "God's Guard", Level = 450, Pos = Vector3.new(-4700, 560, -2000)},
 
     -- SEA 2
-    {Name = "Raider", Level = 700, Pos = Vector3.new(-410, 72, 1780)},
-    {Name = "Mercenary", Level = 725, Pos = Vector3.new(-850, 72, 1400)},
-    {Name = "Swan Pirate", Level = 775, Pos = Vector3.new(900, 72, 1200)},
-    {Name = "Factory Staff", Level = 800, Pos = Vector3.new(280, 72, -180)},
+    -- Kingdom of Rose (700 - 850)
+    {Name = "Raider", Level = 700, Pos = Vector3.new(-480, 72, 1860)},
+    {Name = "Mercenary", Level = 725, Pos = Vector3.new(-970, 100, 1600)},
+    {Name = "Swan Pirate", Level = 750, Pos = Vector3.new(-1100, 100, 1200)},
+    {Name = "Factory Staff", Level = 775, Pos = Vector3.new(-300, 75, 500)},
+    {Name = "boss Jeremy", Level = 850, Pos = Vector3.new(2300, 450, 700)}, -- Boss trên núi
+-- Green Zone (875 - 925)
+    {Name = "Marine Lieutenant", Level = 875, Pos = Vector3.new(-2000, 70, -2600)},
+    {Name = "Marine Captain", Level = 900, Pos = Vector3.new(-1800, 70, -2800)},
+    {Name = "boss Fajita", Level = 925, Pos = Vector3.new(-2100, 70, -2800)}, -- Boss
+-- Graveyard (950 - 975)
     {Name = "Zombie", Level = 950, Pos = Vector3.new(-5500, 10, -50)},
-    {Name = "Snow Trooper", Level = 1000, Pos = Vector3.new(520, 400, -5300)},
-    {Name = "Lab Subordinate", Level = 1100, Pos = Vector3.new(-5800, 10, -11000)},
-    {Name = "Ship Deckhand", Level = 1250, Pos = Vector3.new(920, 10, -3200)},
+    {Name = "Vampire", Level = 975, Pos = Vector3.new(-6000, 10, -50)},
+-- Snow Mountain (1000 - 1050)
+    {Name = "Snow Trooper", Level = 1000, Pos = Vector3.new(700, 400, -1300)},
+    {Name = "Winter Warrior", Level = 1025, Pos = Vector3.new(1200, 450, -1200)},
+-- Hot and Cold (1100 - 1200)
+    {Name = "Lab Subordinate", Level = 1100, Pos = Vector3.new(-5800, 15, -8300)}, -- Cold Sboss Tide Keeper", Level = 1475, Pos = Vector3.new(-3800, 240, -10800)}, -- Boss
+
 
     -- SEA 3
-    {Name = "Pirate Millionaire", Level = 1500, Pos = Vector3.new(-350, 20, 5500)},
-    {Name = "Dragon Crew Warrior", Level = 1575, Pos = Vector3.new(5800, 80, 200)},
-    {Name = "Giant Islander", Level = 1650, Pos = Vector3.new(5000, 600, 200)},
-    {Name = "Marine Commodore", Level = 1700, Pos = Vector3.new(2450, 80, -7500)},
-    {Name = "Fishman Raider", Level = 1775, Pos = Vector3.new(-10700, 30, -8700)},
-    {Name = "Reborn Skeleton", Level = 1975, Pos = Vector3.new(-8800, 140, 6000)},
-    {Name = "Candy Pirate", Level = 2425, Pos = Vector3.new(-1800, 40, -12500)},
+-- Port Town (1500 - 1575)
+    {Name = "Pirate Millionaire", Level = 1500, Pos = Vector3.new(-340, 7, 5300)},
+    {Name = "Pistol Billionaire", Level = 1525, Pos = Vector3.new(-340, 7, 5300)},
+-- Hydra Island (1575 - 1675)
+    {Name = "Dragon Crew Warrior", Level = 1575, Pos = Vector3.new(5230, 1000, 350)},
+    {Name = "Dragon Crew Archer", Level = 1600, Pos = Vector3.new(5500, 1000, 200)},
+    {Name = "Female Islander", Level = 1625, Pos = Vector3.new(5100, 1000, 600)},
+    {Name = "Giant Islander", Level = 1650, Pos = Vector3.new(4900, 1000, 700)},
+    {Name = "Island Empress", Level = 1675, Pos = Vector3.new(5700, 1000, 500)},
+-- Great Tree (1700 - 1750)
+    {Name = "Marine Commodore", Level = 1700, Pos = Vector3.new(2450, 70, -7350)},
+    {Name = "Marine Rear Admiral", Level = 1725, Pos = Vector3.new(2200, 70, -7100)},
+    {Name = "Kilo Admiral", Level = 1750, Pos = Vector3.new(2800, 70, -7200)},
+-- Floating Turtle (1775 - 1975)
+    {Name = "Fishman Raider", Level = 1775, Pos = Vector3.new(-15350, 330, 240)},
+    {Name = "Fishman Captain", Level = 1800, Pos = Vector3.new(-15350, 330, 240)},
+    {Name = "Forest Pirate", Level = 1825, Pos = Vector3.new(-13300, 330, -350)},
+    {Name = "Mythological Pirate", Level = 1850, Pos = Vector3.new(-13500, 330, -500)},
+    {Name = "Jungle Pirate", Level = 1900, Pos = Vector3.new(-12100, 330, -1700)},
+    {Name = "Musketeer Pirate", Level = 1925, Pos = Vector3.new(-12400, 330, -1400)},
+    {Name = "Beautiful Pirate", Level = 1975, Pos = Vector3.new(-12500, 335, -7500)},
+-- Haunted Castle (1975 - 2075)
+    {Name = "Reborn Skeleton", Level = 1975, Pos = Vector3.new(-8800, 140, 5900)},
+    {Name = "Living Zombie", Level = 2000, Pos = Vector3.new(-9400, 140, 5600)},
+    {Name = "Demonic Soul", Level = 2025, Pos = Vector3.new(-9400, 170, 6100)},
+    {Name = "Possessed Mummy", Level = 2050, Pos = Vector3.new(-9600, 170, 6100)},
+-- Sea of Treats: Peanut & Ice Cream (2075 - 2175)
+    {Name = "Peanut Scout", Level = 2075, Pos = Vector3.new(-2000, 70, -12500)},
+    {Name = "Peanut President", Level = 2100, Pos = Vector3.new(-2000, 70, -12500)},
+    {Name = "Ice Cream Chef", Level = 2125, Pos = Vector3.new(-1000, 70, -12500)},
+    {Name = "Ice Cream Commander", Level = 2150, Pos = Vector3.new(-1000, 70, -12500)},
+-- Sea of Treats: Cake Land (2200 - 2275)
+    {Name = "Cookie Crafter", Level = 2200, Pos = Vector3.new(-2000, 70, -11500)},
+    {Name = "Cake Guard", Level = 2225, Pos = Vector3.new(-1600, 70, -11500)},
+    {Name = "Baking Staff", Level = 2250, Pos = Vector3.new(-1800, 70, -11800)},
+    {Name = "Head Baker", Level = 2275, Pos = Vector3.new(-2000, 70, -11800)},
+-- Sea of Treats: Chocolate Island (2300 - 2375)
+    {Name = "Cocoa Warrior", Level = 2300, Pos = Vector3.new(200, 50, -12200)},
+    {Name = "Chocolate Bar Battler", Level = 2325, Pos = Vector3.new(200, 50, -12200)},
+    {Name = "Sweet Thief", Level = 2350, Pos = Vector3.new(800, 50, -12500)},
+    {Name = "Candy Rebel", Level = 2375, Pos = Vector3.new(800, 50, -12500)},
+-- Sea of Treats: Candy Island (2400 - 2425)
+    {Name = "Candy Pirate", Level = 2400, Pos = Vector3.new(-1800, 40, -14500)},
+    {Name = "Snow Demon", Level = 2425, Pos = Vector3.new(-1800, 40, -14500)},
+-- Tiki Outpost (2450 - 2550)
+    {Name = "Isle Outlaw", Level = 2450, Pos = Vector3.new(-16200, 10, 450)},
+    {Name = "Island Boy", Level = 2475, Pos = Vector3.new(-16500, 10, 200)},
+    {Name = "Sun Kissed Warrior", Level = 2500, Pos = Vector3.new(-16000, 10, 700)},
+    {Name = "Isle Champion", Level = 2525, Pos = Vector3.new(-15800, 10, 100)},
+--boss đặc biệt
+    {Name = "boss hiếu liếm", Level = lọ đế chí tôn, Pos = Vector3.new(?,?,?)},
+    {Name = "huy gay", Level = gay ko đối thủ, Pos = Vector3.new(?,?,?)},
+    {Name = "hải xesa", Level = Đại cao bằng, Pos = Vector3.new(?,?,?)},
 }
 
 -- --- FAST ATTACK ---
