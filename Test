@@ -33,7 +33,7 @@ local CONFIG = {
     TargetPosition = nil,
     WeaponType = "Melee",
     
-    FlySpeed = 350,        
+    FlySpeed = 300,        
     ScanDist = 3000,       
     HoverHeight = 15,      
     IslandWaitY = 50,      
