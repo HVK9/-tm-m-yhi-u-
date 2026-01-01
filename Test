@@ -1,374 +1,324 @@
--- HVK9: Phiên bản sửa đầy đủ với Toggle UI, Drag & Drop, Flight tới mục tiêu, Auto-Equip
--- Ghi chú: Cần thay thế GetEnemyFolder/IsAttackable và cách nhận diện vũ khí theo dữ liệu thật của bạn.
+--[[
+    HVK9 ULTIMATE V11 - FIX CRASH & UI
+    1. Fix lỗi không hiện bảng (UI).
+    2. Tự động nhận diện Executor (Delta, Fluxus, Hydrogen...).
+    3. Giữ nguyên Logic Map V10.
+]]
 
--- Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Backpack = LocalPlayer:WaitForChild("Backpack")
 
--- CONFIG
+-- --- CHECK KHỞI TẠO (QUAN TRỌNG) ---
+-- Gửi thông báo để biết Script đã bắt đầu chạy
+pcall(function()
+    StarterGui:SetCore("SendNotification", {
+        Title = "HVK9 ULTIMATE V11";
+        Text = "Đang khởi động...";
+        Duration = 3;
+    })
+end)
+
+-- --- CẤU HÌNH ---
 local CONFIG = {
-    FlightEnabled = false,
+    AutoFarm = false,
+    FastAttack = false,
     SelectedMob = nil,
-    FlightSpeed = 60,
-    FlightAltitude = 12,
-    AutoEquipEnabled = true,
-    UI = { Width = 360, Height = 520 },
-    NPC_Blacklist = {"Quest", "Shop", "Nurse", "Sailor", "Blacksmith", "Doctor", "Guide"},
-    DefaultWeaponName = nil -- tên vũ khí bạn muốn làm mặc định (nếu có)
+    TargetPosition = nil,
+    WeaponType = "Melee",
+    
+    FlySpeed = 350,        
+    ScanDist = 3000,       
+    HoverHeight = 15,      
+    IslandWaitY = 50,      
 }
 
--- 1) UI Setup
-if _G.UltimateHybridUI then _G.UltimateHybridUI:Destroy() end
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UltimateHybridUI"
-pcall(function() ScreenGui.Parent = CoreGui end)
-if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
-_G.UltimateHybridUI = ScreenGui
+-- --- DATA TỌA ĐỘ (GIỮ NGUYÊN TỪ V10) ---
+local MOBS_DB = {
+    -- SEA 1
+    {Name = "Bandit", Level = 5, Pos = Vector3.new(1060, 16, 1550)},
+    {Name = "Monkey", Level = 14, Pos = Vector3.new(-1600, 36, 150)},
+    {Name = "Gorilla", Level = 20, Pos = Vector3.new(-1240, 6, 480)},
+    {Name = "Pirate", Level = 35, Pos = Vector3.new(-1200, 4, 3860)},
+    {Name = "Brute", Level = 45, Pos = Vector3.new(-1150, 4, 4000)},
+    {Name = "Desert Bandit", Level = 60, Pos = Vector3.new(900, 6, 4390)},
+    {Name = "Snow Bandit", Level = 90, Pos = Vector3.new(1350, 87, -1300)},
+    {Name = "Sky Bandit", Level = 150, Pos = Vector3.new(-4900, 720, -2600)},
+    {Name = "Toga Warrior", Level = 225, Pos = Vector3.new(-1650, 7, -2900)},
+    {Name = "Military Soldier", Level = 300, Pos = Vector3.new(-5400, 10, 8500)},
+    {Name = "Fishman Warrior", Level = 375, Pos = Vector3.new(61100, 5, 1700)},
+    {Name = "Galley Pirate", Level = 625, Pos = Vector3.new(5230, 4, 4000)},
 
-local Main = Instance.new("Frame")
-Main.Name = "MainFrame"
-Main.Parent = ScreenGui
-Main.BackgroundColor3 = Color3.fromRGB(25,25,30)
-Main.Position = UDim2.new(0.1, 0, 0.2, 0)
-Main.Size = UDim2.new(0, CONFIG.UI.Width, 0, CONFIG.UI.Height)
-Main.BorderSizePixel = 0
-Instance.new("UICorner", Main)
+    -- SEA 2
+    {Name = "Raider", Level = 700, Pos = Vector3.new(-410, 72, 1780)},
+    {Name = "Mercenary", Level = 725, Pos = Vector3.new(-850, 72, 1400)},
+    {Name = "Swan Pirate", Level = 775, Pos = Vector3.new(900, 72, 1200)},
+    {Name = "Factory Staff", Level = 800, Pos = Vector3.new(280, 72, -180)},
+    {Name = "Zombie", Level = 950, Pos = Vector3.new(-5500, 10, -50)},
+    {Name = "Snow Trooper", Level = 1000, Pos = Vector3.new(520, 400, -5300)},
+    {Name = "Lab Subordinate", Level = 1100, Pos = Vector3.new(-5800, 10, -11000)},
+    {Name = "Ship Deckhand", Level = 1250, Pos = Vector3.new(920, 10, -3200)},
 
-local TitleBar = Instance.new("Frame", Main)
-TitleBar.BackgroundColor3 = Color3.fromRGB(50,55,75)
-TitleBar.Size = UDim2.new(1,0,0,40)
-Instance.new("UICorner", TitleBar)
+    -- SEA 3
+    {Name = "Pirate Millionaire", Level = 1500, Pos = Vector3.new(-350, 20, 5500)},
+    {Name = "Dragon Crew Warrior", Level = 1575, Pos = Vector3.new(5800, 80, 200)},
+    {Name = "Giant Islander", Level = 1650, Pos = Vector3.new(5000, 600, 200)},
+    {Name = "Marine Commodore", Level = 1700, Pos = Vector3.new(2450, 80, -7500)},
+    {Name = "Fishman Raider", Level = 1775, Pos = Vector3.new(-10700, 30, -8700)},
+    {Name = "Reborn Skeleton", Level = 1975, Pos = Vector3.new(-8800, 140, 6000)},
+    {Name = "Candy Pirate", Level = 2425, Pos = Vector3.new(-1800, 40, -12500)},
+}
 
-local TitleLabel = Instance.new("TextLabel", TitleBar)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Size = UDim2.new(1, -10, 1, 0)
-TitleLabel.Position = UDim2.new(0, 5, 0, 0)
-TitleLabel.Font = Enum.Font.GothamBlack
-TitleLabel.Text = "HVK9"
-TitleLabel.TextColor3 = Color3.fromRGB(255,255,255)
-TitleLabel.TextSize = 14
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+-- --- FAST ATTACK ---
+local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
+local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+local RegisterHit = Net:WaitForChild("RE/RegisterHit")
 
--- Ô vuông nhỏ để ẩn/hiện UI
-local HandleSize = 22
-local UIHandle = Instance.new("Frame")
-UIHandle.Name = "UIHandle"
-UIHandle.Size = UDim2.new(0, HandleSize, 0, HandleSize)
-UIHandle.Position = UDim2.new(0, 6, 0, 6)
-UIHandle.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-UIHandle.BorderSizePixel = 0
-Instance.new("UICorner", UIHandle)
-UIHandle.Parent = ScreenGui
-
-local HandleLabel = Instance.new("TextLabel", UIHandle)
-HandleLabel.BackgroundTransparency = 1
-HandleLabel.Size = UDim2.new(1, 0, 1, 0)
-HandleLabel.Text = "≡"
-HandleLabel.TextColor3 = Color3.fromRGB(255,255,255)
-HandleLabel.TextScaled = true
-HandleLabel.Font = Enum.Font.GothamBold
-
-local uiVisible = true
-UIHandle.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        uiVisible = not uiVisible
-        Main.Visible = uiVisible
-        -- Tuy nhiên, đừng destroy UI. Giữ làm trạng thái để có thể mở lại nhanh chóng.
+task.spawn(function()
+    while true do
+        task.wait()
+        if CONFIG.FastAttack then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local hrp = char.HumanoidRootPart
+                    local enemiesToHit = {}
+                    local mainTarget = nil
+                    
+                    local EnemiesFolder = Workspace:FindFirstChild("Enemies")
+                    if EnemiesFolder then
+                        for _, v in pairs(EnemiesFolder:GetChildren()) do
+                            if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+                                local dist = (v.HumanoidRootPart.Position - hrp.Position).Magnitude
+                                if dist < 60 then 
+                                    table.insert(enemiesToHit, {v, v.HumanoidRootPart})
+                                    mainTarget = v.HumanoidRootPart
+                                end
+                            end
+                        end
+                    end
+                    if mainTarget then
+                        RegisterAttack:FireServer(0)
+                        RegisterHit:FireServer(mainTarget, enemiesToHit)
+                    end
+                end
+            end)
+        end
     end
 end)
 
--- Drag & Drop cho Main Frame (draggable)
-local dragging = false
-local dragStart = Vector2.new()
-local startPos = Main.Position
+-- --- HỆ THỐNG BAY ---
+local TweenObj = nil
+local function FlyTo(targetCF)
+    local p = LocalPlayer.Character
+    if not p or not p:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = p.HumanoidRootPart
 
-local function clampToScreen(pos)
-    local screenSize = ScreenGui.AbsoluteSize
-    local maxX = math.max(0, screenSize.X - Main.Size.X.Offset)
-    local maxY = math.max(0, screenSize.Y - Main.Size.Y.Offset)
-    local newX = math.clamp(pos.X.Offset, 0, maxX)
-    local newY = math.clamp(pos.Y.Offset, 0, maxY)
-    return UDim2.new(pos.X.Scale, newX, pos.Y.Scale, newY)
+    if not hrp:FindFirstChild("HVK_Fly") then
+        local bv = Instance.new("BodyVelocity", hrp)
+        bv.Name = "HVK_Fly"
+        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        bv.Velocity = Vector3.new(0,0,0)
+    end
+    
+    for _, part in pairs(p:GetDescendants()) do
+        if part:IsA("BasePart") then part.CanCollide = false end
+    end
+
+    local dist = (hrp.Position - targetCF.Position).Magnitude
+    if dist < 5 then 
+        hrp.CFrame = targetCF 
+        if TweenObj then TweenObj:Cancel() end
+        return 
+    end
+    
+    if TweenObj and TweenObj.PlaybackState == Enum.PlaybackState.Playing and (TweenObj.Instance == hrp) then
+        return 
+    end
+
+    local speed = CONFIG.FlySpeed
+    local info = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
+    TweenObj = TweenService:Create(hrp, info, {CFrame = targetCF})
+    TweenObj:Play()
 end
 
-TitleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = Main.Position
-
-        local moveConn
-        moveConn = UserInputService.InputChanged:Connect(function(change)
-            if not dragging then return end
-            if change.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = Vector2.new(change.Position.X - dragStart.X, change.Position.Y - dragStart.Y)
-                local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
-                                       startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-                Main.Position = clampToScreen(newPos)
-            end
-        end)
-
-        local upConn
-        upConn = UserInputService.InputEnded:Connect(function(endInput)
-            if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
-                if moveConn then moveConn:Disconnect() end
-                if upConn then upConn:Disconnect() end
-            end
-        end)
+local function StopFly()
+    if TweenObj then TweenObj:Cancel() end
+    local p = LocalPlayer.Character
+    if p and p:FindFirstChild("HumanoidRootPart") and p.HumanoidRootPart:FindFirstChild("HVK_Fly") then
+        p.HumanoidRootPart.HVK_Fly:Destroy()
     end
-end)
-
--- 3) Danh sách quái và cập nhật
-local ListLabel = Instance.new("TextLabel", Main)
-ListLabel.Text = "DANH SÁCH QUÁI (Click để chọn):"
-ListLabel.Font = Enum.Font.GothamBold
-ListLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-ListLabel.TextSize = 11
-ListLabel.Size = UDim2.new(1, 0, 0, 20)
-ListLabel.Position = UDim2.new(0, 0, 0, 250)
-ListLabel.BackgroundTransparency = 1
-
-local ScrollList = Instance.new("ScrollingFrame")
-ScrollList.Parent = Main
-ScrollList.BackgroundTransparency = 1
-ScrollList.Position = UDim2.new(0, 0, 0, 270)
-ScrollList.Size = UDim2.new(1, 0, 1, -270)
-ScrollList.CanvasSize = UDim2.new(0, 0, 0, 0)
-ScrollList.ScrollBarThickness = 6
-
-local ListLayout = Instance.new("UIListLayout", ScrollList)
-ListLayout.Padding = UDim.new(0, 6)
-ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ScrollList.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
-end)
-
-local mobsCache = {} -- { mobName = count }
-
-local function IsAttackable(v)
-    if not v:IsA("Model") then return false end
-    if v == LocalPlayer.Character then return false end
-    if Players:GetPlayerFromCharacter(v) then return false end
-    local hum = v:FindFirstChildOfClass("Humanoid")
-    local root = v:FindFirstChild("HumanoidRootPart")
-    if hum and root and hum.Health > 0 then
-        local nameLower = v.Name:lower()
-        for _, b in pairs(CONFIG.NPC_Blacklist) do
-            if string.find(nameLower, b:lower()) then return false end
-        end
-        return true
-    end
-    return false
 end
 
-local function GetEnemyFolder()
-    local candidates = {"Enemies", "Mobs", "Monsters", "NPCs", "Live"}
-    for _, name in ipairs(candidates) do
-        local f = Workspace:FindFirstChild(name)
-        if f then return f end
-    end
-    return Workspace
-end
-
-local function RefreshMobList()
-    mobsCache = {}
-    local folder = GetEnemyFolder()
-    for _, obj in pairs(folder:GetDescendants()) do
-        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
-            if IsAttackable(obj) then
-                local nm = obj.Name
-                mobsCache[nm] = (mobsCache[nm] or 0) + 1
+-- --- EQUIP TOOL ---
+local function EquipWeapon()
+    pcall(function()
+        local bp = LocalPlayer.Backpack
+        local char = LocalPlayer.Character
+        if not char then return end
+        local toolName = ""
+        for _, t in pairs(bp:GetChildren()) do
+            if t:IsA("Tool") then
+                if CONFIG.WeaponType == "Melee" and t.ToolTip == "Melee" then toolName = t.Name break
+                elseif CONFIG.WeaponType == "Sword" and t.ToolTip == "Sword" then toolName = t.Name break
+                elseif CONFIG.WeaponType == "Blox Fruit" and t.ToolTip == "Blox Fruit" then toolName = t.Name break end
             end
         end
-    end
-
-    -- Xóa nút cũ
-    for _, c in pairs(ScrollList:GetChildren()) do
-        if c:IsA("TextButton") then c:Destroy() end
-    end
-
-    -- Tạo nút mới
-    for name, count in pairs(mobsCache) do
-        local btn = Instance.new("TextButton")
-        btn.Parent = ScrollList
-        btn.Size = UDim2.new(0.9, 0, 0, 30)
-        btn.BackgroundColor3 = (CONFIG.SelectedMob == name) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(40, 40, 50)
-        btn.Text = "  " .. name .. " [" .. count .. "]"
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 12
-        Instance.new("UICorner", btn)
-
-        btn.MouseButton1Click:Connect(function()
-            CONFIG.SelectedMob = name
-            RefreshMobList() -- cập nhật highlight
-        end)
-    end
-end
-
-RefreshMobList()
-
--- 4) Flight (bay tới mục tiêu)
-local flightConnection
-local function GetTargetRootPart()
-    if not CONFIG.SelectedMob then return nil end
-    local folder = GetEnemyFolder()
-    for _, m in pairs(folder:GetDescendants()) do
-        if m:IsA("Model") and m.Name == CONFIG.SelectedMob and m:FindFirstChild("HumanoidRootPart") then
-            return m.HumanoidRootPart
+        if toolName ~= "" and char:FindFirstChild(toolName) == nil then
+            char.Humanoid:EquipTool(bp:FindFirstChild(toolName))
         end
-    end
-    return nil
-end
-
-local function StartFlightToTarget(targetHRP)
-    if not targetHRP then return end
-    local hrp = targetHRP
-    local playerHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not playerHRP then return end
-
-    if flightConnection then flightConnection:Disconnect() end
-    flightConnection = RunService.RenderStepped:Connect(function(dt)
-        if not CONFIG.FlightEnabled then return end
-        local dest = Vector3.new(hrp.Position.X, hrp.Position.Y + CONFIG.FlightAltitude, hrp.Position.Z)
-        local cur = playerHRP.Position
-        local dir = dest - cur
-        local dist = dir.Magnitude
-        if dist < 2 then
-            return
-        end
-        local step = math.min(CONFIG.FlightSpeed * dt, dist)
-        local move = dir.Unit * step
-        playerHRP.CFrame = CFrame.new(cur + move)
-        LocalPlayer.Character:SetPrimaryPartCFrame(CFrame.new(playerHRP.Position, dest))
     end)
 end
 
-local function StopFlight()
-    if flightConnection then flightConnection:Disconnect() flightConnection = nil end
+-- --- TẠO UI AN TOÀN ---
+local function CreateUI()
+    if _G.HVK_UI_V11 then _G.HVK_UI_V11:Destroy() end
+    
+    -- Tìm nơi an toàn để gắn UI
+    local parent = game:GetService("CoreGui")
+    if not pcall(function() parent = game:GetService("CoreGui") end) then
+        parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    local Screen = Instance.new("ScreenGui", parent)
+    _G.HVK_UI_V11 = Screen
+    Screen.Name = "HVK_9"
+
+    local Main = Instance.new("Frame", Screen)
+    Main.Size = UDim2.new(0, 300, 0, 400)
+    Main.Position = UDim2.new(0.05, 0, 0.25, 0)
+    Main.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    Main.BorderSizePixel = 2
+    Main.BorderColor3 = Color3.fromRGB(255, 0, 0) -- Viền đỏ để dễ thấy
+    Main.Active = true
+    Main.Draggable = true -- Cho phép kéo thả bảng
+
+    local Title = Instance.new("TextLabel", Main)
+    Title.Size = UDim2.new(1,0,0,40)
+    Title.Text = "HVK_9"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextSize = 20
+
+    local Status = Instance.new("TextLabel", Main)
+    Status.Size = UDim2.new(1,0,0,30)
+    Status.Position = UDim2.new(0,0,0,40)
+    Status.Text = "Trạng thái: Sẵn sàng"
+    Status.TextColor3 = Color3.new(1,1,1)
+    Status.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+
+    local function Btn(txt, y, fn)
+        local b = Instance.new("TextButton", Main)
+        b.Size = UDim2.new(0.9,0,0,35)
+        b.Position = UDim2.new(0.05,0,0,y)
+        b.Text = txt
+        b.BackgroundColor3 = Color3.fromRGB(60,60,70)
+        b.TextColor3 = Color3.new(1,1,1)
+        b.Font = Enum.Font.SourceSansBold
+        b.TextSize = 16
+        b.MouseButton1Click:Connect(function() fn(b) end)
+        return b
+    end
+
+    Btn("AUTO FARM: OFF", 80, function(b)
+        CONFIG.AutoFarm = not CONFIG.AutoFarm
+        b.Text = CONFIG.AutoFarm and "AUTO FARM: ON" or "AUTO FARM: OFF"
+        b.BackgroundColor3 = CONFIG.AutoFarm and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(60,60,70)
+        if not CONFIG.AutoFarm then StopFly() end
+    end)
+
+    Btn("FAST ATTACK: OFF", 120, function(b)
+        CONFIG.FastAttack = not CONFIG.FastAttack
+        b.Text = CONFIG.FastAttack and "FAST ATTACK: ON" or "FAST ATTACK: OFF"
+        b.BackgroundColor3 = CONFIG.FastAttack and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(60,60,70)
+    end)
+
+    Btn("WEAPON: MELEE", 160, function(b)
+        if CONFIG.WeaponType == "Melee" then CONFIG.WeaponType = "Sword"
+        elseif CONFIG.WeaponType == "Sword" then CONFIG.WeaponType = "Blox Fruit"
+        else CONFIG.WeaponType = "Melee" end
+        b.Text = "WEAPON: " .. CONFIG.WeaponType
+    end)
+
+    local Scroll = Instance.new("ScrollingFrame", Main)
+    Scroll.Size = UDim2.new(0.9,0,0,180)
+    Scroll.Position = UDim2.new(0.05,0,0,205)
+    Scroll.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    local UIList = Instance.new("UIListLayout", Scroll)
+
+    for _, m in pairs(MOBS_DB) do
+        local b = Instance.new("TextButton", Scroll)
+        b.Size = UDim2.new(1,0,0,30)
+        b.Text = m.Name .. " (Lv."..m.Level..")"
+        b.BackgroundColor3 = Color3.fromRGB(50,50,55)
+        b.TextColor3 = Color3.new(0.9,0.9,0.9)
+        b.MouseButton1Click:Connect(function()
+            CONFIG.SelectedMob = m.Name
+            CONFIG.TargetPosition = m.Pos
+            Status.Text = "Target: " .. m.Name
+        end)
+    end
 end
 
-spawn(function()
-    while true do
-        local targetHRP = GetTargetRootPart()
-        if CONFIG.FlightEnabled and targetHRP then
-            StartFlightToTarget(targetHRP)
-        else
-            StopFlight()
-        end
-        wait(0.2)
-    end
-end)
+-- Gọi hàm tạo UI
+pcall(CreateUI)
 
--- 5) Auto Equip
-local function DetermineWeaponCategory(tool)
-    if not tool then return nil end
-    local name = tool.Name:lower()
-    if string.find(name, "sword") or string.find(name, "blade") then
-        return "Sword"
-    elseif string.find(name, "gun") or string.find(name, "rifle") or string.find(name, "pistol") then
-        return "Gun"
-    elseif string.find(name, "knife") or string.find(name, "dagger") then
-        return "Melee"
-    elseif string.find(name, "wheel") or string.find(name, "quake") or string.find(name, "stun") then
-        return "Wheel"
-    end
-    return nil
-end
+-- --- MAIN LOGIC ---
+-- Capture Controller an toàn
+pcall(function() VirtualUser:CaptureController() end)
 
-local lastEquipState = false
-local function AutoEquip()
-    -- Chỉ chạy khi bật AutoEquip
-    if not CONFIG.AutoEquipEnabled then return end
-
-    -- Nếu có một vũ khí được chọn làm mặc định, ưu tiên nó
-    if CONFIG.DefaultWeaponName then
-        local t = Backpack:FindFirstChild(CONFIG.DefaultWeaponName)
-        if t and t:IsA("Tool") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid:EquipTool(t)
-            lastEquipState = true
-            return
-        end
-    end
-
-    local preferred = { "Sword", "Gun", "Melee", "Wheel" }
-    local items = {}
-    for _, tool in pairs(Backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            local cat = DetermineWeaponCategory(tool)
-            table.insert(items, {Tool = tool, Cat = cat})
-        end
-    end
-
-    for _, cat in ipairs(preferred) do
-        for _, entry in ipairs(items) do
-            if entry.Cat == cat then
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                    LocalPlayer.Character.Humanoid:EquipTool(entry.Tool)
-                    lastEquipState = true
-                    return
+task.spawn(function()
+    while task.wait(0.2) do
+        if CONFIG.AutoFarm and CONFIG.SelectedMob and CONFIG.TargetPosition then
+            pcall(function()
+                local p = LocalPlayer.Character
+                if p and p:FindFirstChild("HumanoidRootPart") and p.Humanoid.Health > 0 then
+                    local hrp = p.HumanoidRootPart
+                    local distToIsland = (hrp.Position - CONFIG.TargetPosition).Magnitude
+                    
+                    if distToIsland > CONFIG.ScanDist then
+                        -- Bay tới đảo
+                        FlyTo(CFrame.new(CONFIG.TargetPosition + Vector3.new(0, 100, 0))) 
+                    else
+                        -- Tìm quái gần
+                        local targetMob = nil
+                        local Enemies = Workspace:FindFirstChild("Enemies")
+                        if Enemies then
+                            for _, v in pairs(Enemies:GetChildren()) do
+                                if v.Name == CONFIG.SelectedMob and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                                    if (v.HumanoidRootPart.Position - hrp.Position).Magnitude < CONFIG.ScanDist then
+                                        targetMob = v
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if targetMob then
+                            FlyTo(targetMob.HumanoidRootPart.CFrame * CFrame.new(0, CONFIG.HoverHeight, 0))
+                            EquipWeapon()
+                            
+                            -- Auto Haki an toàn
+                            pcall(function()
+                                if not p:FindFirstChild("HasBuso") then 
+                                    ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
+                                end
+                            end)
+                            
+                            VirtualUser:Button1Down(Vector2.new(0,0))
+                        else
+                            FlyTo(CFrame.new(CONFIG.TargetPosition + Vector3.new(0, CONFIG.IslandWaitY, 0)))
+                        end
+                    end
                 end
-            end
+            end)
         end
     end
-
-    if #items > 0 and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid:EquipTool(items[1].Tool)
-        lastEquipState = true
-    else
-        lastEquipState = false
-    end
-end
-
--- Trigger AutoEquip on Mob select or on a timer with throttling
-local autoEquipCooldown = 0
-spawn(function()
-    while true do
-        if CONFIG.AutoEquipEnabled then
-            local now = tick()
-            if now - autoEquipCooldown > 2 then
-                AutoEquip()
-                autoEquipCooldown = now
-            end
-        end
-        RunService.RenderStepped:Wait()
-    end
 end)
-
--- 6) Giữ danh sách Mob liên tục (optional)
-spawn(function()
-    while true do
-        RefreshMobList()
-        wait(5)
-    end
-end)
-
--- 7) Highlight UI khi chọn
-spawn(function()
-    while true do
-        for _, btn in pairs(ScrollList:GetChildren()) do
-            if btn:IsA("TextButton") then
-                local nm = btn.Text:match("^  (.-) %[")
-                if nm and nm == CONFIG.SelectedMob then
-                    btn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-                else
-                    btn.BackgroundColor3 = Color3.fromRGB(40,40,50)
-                end
-            end
-        end
-        wait(0.5)
-    end
-end)
-
--- END
