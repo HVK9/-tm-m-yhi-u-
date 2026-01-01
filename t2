@@ -131,12 +131,14 @@ local MOBS_DB = {
     {Name = "Head Baker", Level = 2275, Pos = Vector3.new(-2000, 70, -11800)},
     -- Chocolate Island (2300 - 2375)
     {Name = "Cocoa Warrior", Level = 2300, Pos = Vector3.new(200, 50, -12200)},
+    {Name = "Chocolate Bar Battlers", Level = 2325, Pos = Vector3.new(513, 24, -12394)},
+    {Name = "Sweet Thiefs", Level = 2350, Pos = Vector3.new(69, 77, -12643)},
     {Name = "Candy Rebel", Level = 2375, Pos = Vector3.new(800, 50, -12500)},
     -- Candy Island (2400 - 2425)
     {Name = "Candy Pirate", Level = 2400, Pos = Vector3.new(-1800, 40, -14500)},
     -- Tiki Outpost (2450 - 2550)
-    {Name = "Isle Outlaw", Level = 2450, Pos = Vector3.new(-16200, 10, 450)},
-    {Name = "Sun Kissed Warrior", Level = 2500, Pos = Vector3.new(-16000, 10, 700)},
+    {Name = "Isle Outlaw", Level = 2450, Pos = Vector3.new(-16250, 21, -198)},
+    {Name = "Sun Kissed Warrior", Level = 2500, Pos = Vector3.new(-16223, 137, 1027)},
 
     -- Boss đặc biệt
     {Name = "boss hiếu liếm", Level = "Lọ Đế Chí Tôn", Pos = Vector3.new(0, 0, 0)},
