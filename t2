@@ -24,7 +24,7 @@ local CONFIG = {
     TargetPosition = nil,
     WeaponType = "Melee",
     
-    FlySpeed = 350,
+    FlySpeed = 300,
     HoverHeight = 15,
 }
 
@@ -46,31 +46,31 @@ local MOBS_DB = {
     {Name = "Desert Officer", Level = 70, Pos = Vector3.new(1560, 6, 4380)},
     -- Frozen Village (90 - 120)
     {Name = "Snow Bandit", Level = 90, Pos = Vector3.new(1380, 87, -1300)},
-    {Name = "Snowman", Level = 100, Pos = Vector3.new(1380, 87, -1500)},
-    {Name = "Yeti", Level = 105, Pos = Vector3.new(1380, 87, -1500)}, -- Boss
+    {Name = "Snowman", Level = 100, Pos = Vector3.new(1222, 138, -1489)},
+    {Name = "Yeti", Level = 105, Pos = Vector3.new(1222, 138, -1489)}, -- Boss
     -- Marine Fortress (120 - 150)
-    {Name = "Chief Petty Officer", Level = 120, Pos = Vector3.new(-4900, 20, 4200)},
-    {Name = "Vice Admiral", Level = 130, Pos = Vector3.new(-4800, 20, 4300)}, -- Boss
+    {Name = "Chief Petty Officer", Level = 120, Pos = Vector3.new(-4996, 84, 4154)},
+    {Name = "Vice Admiral", Level = 130, Pos = Vector3.new(-5080, 154, 4428)}, -- Boss
     -- Skylands (150 - 250) - Tầng 1
     {Name = "Sky Bandit", Level = 150, Pos = Vector3.new(-4900, 296, -2900)},
-    {Name = "Dark Master", Level = 175, Pos = Vector3.new(-5200, 296, -2900)},
+    {Name = "Dark Master", Level = 175, Pos = Vector3.new(-5228, 429, -2279)},
     -- Prison (190 - 250)
-    {Name = "Prisoner", Level = 190, Pos = Vector3.new(5300, 1, 400)},
-    {Name = "Dangerous Prisoner", Level = 210, Pos = Vector3.new(5600, 1, 400)},
-    {Name = "Warden", Level = 220, Pos = Vector3.new(5800, 1, 400)}, -- Boss
-    {Name = "Chief Warden", Level = 230, Pos = Vector3.new(5600, 1, 400)}, -- Boss
-    {Name = "Swan", Level = 240, Pos = Vector3.new(5400, 1, 400)}, -- Boss
+    {Name = "Prisoner", Level = 190, Pos = Vector3.new(5300, 88, 472)},
+    {Name = "Dangerous Prisoner", Level = 210, Pos = Vector3.new(5300, 88, 472)},
+    {Name = "Warden", Level = 220, Pos = Vector3.new(5284, 94, 922)}, -- Boss
+    {Name = "Chief Warden", Level = 230, Pos = Vector3.new(5284, 94, 922)}, -- Boss
+    {Name = "Swan", Level = 240, Pos = Vector3.new(5284, 94, 922)}, -- Boss
     -- Colosseum (225 - 300)
     {Name = "Toga Warrior", Level = 225, Pos = Vector3.new(-1600, 7, -2800)},
     {Name = "Gladiator", Level = 275, Pos = Vector3.new(-1400, 7, -3100)},
     -- Magma Village (300 - 375)
-    {Name = "Military Soldier", Level = 300, Pos = Vector3.new(-5400, 7, 8500)},
-    {Name = "Military Spy", Level = 325, Pos = Vector3.new(-5800, 7, 8800)},
+    {Name = "Military Soldier", Level = 300, Pos = Vector3.new(-5514, 62, 8577)},
+    {Name = "Military Spy", Level = 325, Pos = Vector3.new(-5779, 119, 8804)},
     {Name = "Magma Admiral", Level = 350, Pos = Vector3.new(-5600, 7, 8500)}, -- Boss
     -- Underwater City (375 - 450)
     {Name = "Fishman Warrior", Level = 375, Pos = Vector3.new(61120, 18, 1570)}, 
     {Name = "Fishman Commando", Level = 400, Pos = Vector3.new(61120, 18, 1570)},
-    {Name = "Fishman Lord", Level = 425, Pos = Vector3.new(61120, 18, 1570)}, -- Boss
+    {Name = "Fishman Lord", Level = 425, Pos = Vector3.new(-5685, 17, 8648)}, -- Boss
     -- Skylands (450 - 575) - Tầng trên cao (Upper Skylands)
     {Name = "God's Guard", Level = 450, Pos = Vector3.new(-4700, 560, -2000)},
     {Name = "Shanda", Level = 475, Pos = Vector3.new(-7600, 5550, -1400)},
@@ -108,13 +108,13 @@ local MOBS_DB = {
 
     -- ================= SEA 3 =================
     -- Port Town (1500 - 1575)
-    {Name = "Pirate Millionaire", Level = 1500, Pos = Vector3.new(-340, 7, 5300)},
+    {Name = "Pirate Millionaire", Level = 1500, Pos = Vector3.new(-18, 110, 5806)},
     -- Hydra Island (1575 - 1675)
-    {Name = "Dragon Crew Warrior", Level = 1575, Pos = Vector3.new(5230, 1000, 350)},
-    {Name = "Island Empress", Level = 1675, Pos = Vector3.new(5700, 1000, 500)}, -- Boss
+    {Name = "Dragon Crew Warrior", Level = 1575, Pos = Vector3.new(-60, 170, 6179)},
+    {Name = "Island Empress", Level = 1675, Pos = Vector3.new(-1194, 103, 6916)}, -- Boss
     -- Great Tree (1700 - 1750)
     {Name = "Marine Commodore", Level = 1700, Pos = Vector3.new(2450, 70, -7350)},
-    {Name = "Kilo Admiral", Level = 1750, Pos = Vector3.new(2800, 70, -7200)}, -- Boss
+    {Name = "Kilo Admiral", Level = 1750, Pos = Vector3.new(2904, 509, -7368)}, -- Boss
     -- Floating Turtle (1775 - 1975)
     {Name = "Fishman Raider", Level = 1775, Pos = Vector3.new(-15350, 330, 240)},
     {Name = "Giant Islander", Level = 1650, Pos = Vector3.new(4900, 1000, 700)},
