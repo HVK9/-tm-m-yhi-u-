@@ -289,3 +289,5 @@ RunService.RenderStepped:Connect(function()
         end)
     end
 end)
+
+            StarterGui:SetCore("SendNotification", {Title = "HVK-9"; Text = "có gì cần hỗ trợ liên hệ 0896.XXX.XXX"; Duration = 5})
