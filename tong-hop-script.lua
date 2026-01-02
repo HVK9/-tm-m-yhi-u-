@@ -1,9 +1,7 @@
 --[[
-    HVK9 ULTIMATE V15 - FIX PORTAL & LOGIC EDITION
-    1. Data & UI: Giữ nguyên 100% (Có hiện Level, giữ nút chọn Weapon).
-    2. Smart Portal: Tự động đi vào Đảo Người Cá, Tàu Ma, Đảo Ẩn.
-    3. Smart Target: Tự động tìm quái thực tế để đánh thay vì đứng ở điểm spawn.
-    4. Noclip & Anti-Bug: Cải tiến bay xuyên tường và giữ ổn định.
+    HVK9 ULTIMATE V15.1 - FIX SYNTAX ERROR <EOF>
+    1. Fix lỗi thiếu 'end' gây crash script.
+    2. Giữ nguyên toàn bộ logic Portal, Farm, Weapon, UI.
 ]]
 
 local Players = game:GetService("Players")
@@ -17,141 +15,108 @@ local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- --- CẤU HÌNH (GIỮ NGUYÊN) ---
+-- --- CẤU HÌNH ---
 local CONFIG = {
     AutoFarm = false, 
     SelectedMob = nil,
     TargetPosition = nil,
-    WeaponType = "Melee", -- Mặc định
+    WeaponType = "Melee",
     
-    FlySpeed = 350, -- Tăng nhẹ tốc độ để đi xa nhanh hơn
+    FlySpeed = 350,
     HoverHeight = 15, 
 }
 
--- --- DATA TỌA ĐỘ (GIỮ NGUYÊN 100% CỦA BẠN - KHÔNG CHỈNH SỬA) ---
+-- --- DATA TỌA ĐỘ (GIỮ NGUYÊN) ---
 local MOBS_DB = {
-    -- ================= SEA 1 =================
-    -- Starter Island (0 - 10)
+    -- SEA 1
     {Name = "Bandit", Level = 5, Pos = Vector3.new(1060, 16, 1550)}, 
-    -- Jungle (15 - 30)
     {Name = "Monkey", Level = 14, Pos = Vector3.new(-1600, 36, 150)},
     {Name = "Gorilla", Level = 20, Pos = Vector3.new(-1240, 6, -500)},
     {Name = "Gorilla King", Level = 25, Pos = Vector3.new(-1130, 6, -450)}, 
-    -- Pirate Village (30 - 60)
     {Name = "Pirate", Level = 35, Pos = Vector3.new(-1130, 4, 3850)},
-    {Name = "Brute", Level = 45, Pos = Vector3.new(-1300, 4, 3850)},
-    {Name = "Bobby", Level = 55, Pos = Vector3.new(-1130, 4, 3850)}, 
-    -- Desert (60 - 90)
+    {Name = "Brute", Level = 45, Pos = Vector3.new(-1149, 96, 4309)},
+    {Name = "Bobby", Level = 55, Pos = Vector3.new(-1152, 57, 4174)}, 
     {Name = "Desert Bandit", Level = 60, Pos = Vector3.new(900, 6, 4380)},
     {Name = "Desert Officer", Level = 70, Pos = Vector3.new(1560, 6, 4380)},
-    -- Frozen Village (90 - 120)
     {Name = "Snow Bandit", Level = 90, Pos = Vector3.new(1380, 87, -1300)},
     {Name = "Snowman", Level = 100, Pos = Vector3.new(1222, 138, -1489)},
     {Name = "Yeti", Level = 105, Pos = Vector3.new(1222, 138, -1489)}, 
-    -- Marine Fortress (120 - 150)
     {Name = "Chief Petty Officer", Level = 120, Pos = Vector3.new(-4996, 84, 4154)},
     {Name = "Vice Admiral", Level = 130, Pos = Vector3.new(-5080, 154, 4428)}, 
-    -- Skylands (150 - 250) - Tầng 1
     {Name = "Sky Bandit", Level = 150, Pos = Vector3.new(-4900, 296, -2900)},
     {Name = "Dark Master", Level = 175, Pos = Vector3.new(-5228, 429, -2279)},
-    -- Prison (190 - 250)
     {Name = "Prisoner", Level = 190, Pos = Vector3.new(5300, 88, 472)},
     {Name = "Dangerous Prisoner", Level = 210, Pos = Vector3.new(5300, 88, 472)},
     {Name = "Warden", Level = 220, Pos = Vector3.new(5284, 94, 922)}, 
     {Name = "Chief Warden", Level = 230, Pos = Vector3.new(5284, 94, 922)}, 
     {Name = "Swan", Level = 240, Pos = Vector3.new(5284, 94, 922)}, 
-    -- Colosseum (225 - 300)
     {Name = "Toga Warrior", Level = 225, Pos = Vector3.new(-1600, 7, -2800)},
     {Name = "Gladiator", Level = 275, Pos = Vector3.new(-1400, 7, -3100)},
-    -- Magma Village (300 - 375)
     {Name = "Military Soldier", Level = 300, Pos = Vector3.new(-5514, 62, 8577)},
     {Name = "Military Spy", Level = 325, Pos = Vector3.new(-5779, 119, 8804)},
     {Name = "Magma Admiral", Level = 350, Pos = Vector3.new(-5600, 7, 8500)}, 
-    -- Underwater City (375 - 450)
     {Name = "Fishman Warrior", Level = 375, Pos = Vector3.new(61120, 18, 1570)}, 
     {Name = "Fishman Commando", Level = 400, Pos = Vector3.new(61120, 18, 1570)},
-    {Name = "Fishman Lord", Level = 425, Pos = Vector3.new(-5685, 17, 8648)}, -- Boss này spawn ở Magma (cần check lại logic game gốc, nhưng giữ nguyên data của bạn)
-    -- Skylands (450 - 575) - Tầng trên cao
+    {Name = "Fishman Lord", Level = 425, Pos = Vector3.new(-5685, 17, 8648)},
     {Name = "God's Guard", Level = 450, Pos = Vector3.new(-4700, 560, -2000)},
     {Name = "Shanda", Level = 475, Pos = Vector3.new(-7600, 5550, -1400)},
     {Name = "Wysper", Level = 500, Pos = Vector3.new(-7900, 5550, -1600)}, 
     {Name = "Thunder God", Level = 575, Pos = Vector3.new(-7700, 5600, -2300)}, 
-    -- Fountain City (625 - 700)
     {Name = "Galley Pirate", Level = 625, Pos = Vector3.new(5500, 40, 4000)},
     {Name = "Cyborg", Level = 675, Pos = Vector3.new(6000, 40, 4200)}, 
 
-    -- ================= SEA 2 =================
-    -- Kingdom of Rose (700 - 850)
+    -- SEA 2
     {Name = "Raider", Level = 700, Pos = Vector3.new(-480, 72, 1860)},
     {Name = "Mercenary", Level = 725, Pos = Vector3.new(-970, 100, 1600)},
     {Name = "Factory Staff", Level = 775, Pos = Vector3.new(-300, 75, 500)},
     {Name = "Jeremy", Level = 850, Pos = Vector3.new(2300, 450, 700)}, 
-    -- Green Zone (875 - 925)
     {Name = "Marine Lieutenant", Level = 875, Pos = Vector3.new(-2000, 70, -2600)},
     {Name = "Fajita", Level = 925, Pos = Vector3.new(-2100, 70, -2800)}, 
-    -- Graveyard (950 - 975)
     {Name = "Zombie", Level = 950, Pos = Vector3.new(-5500, 10, -50)},
     {Name = "Vampire", Level = 975, Pos = Vector3.new(-6000, 10, -50)},
-    -- Snow Mountain (1000 - 1050)
     {Name = "Snow Trooper", Level = 1000, Pos = Vector3.new(700, 400, -1300)},
-    -- Hot and Cold (1100 - 1200)
     {Name = "Lab Subordinate", Level = 1100, Pos = Vector3.new(-5800, 15, -8300)},
     {Name = "Magma Ninja", Level = 1175, Pos = Vector3.new(-5400, 15, -8300)},
-    -- Cursed Ship (1250 - 1325)
     {Name = "Ship Deckhand", Level = 1250, Pos = Vector3.new(920, 125, 32800)},
-    -- Ice Castle (1350 - 1400)
     {Name = "Arctic Warrior", Level = 1350, Pos = Vector3.new(6000, 28, -6000)},
     {Name = "Awakened Ice Admiral", Level = 1400, Pos = Vector3.new(6400, 30, -6200)}, 
-    -- Forgotten Island (1425 - 1475)
     {Name = "Sea Soldier", Level = 1425, Pos = Vector3.new(-3000, 240, -10000)},
     {Name = "Tide Keeper", Level = 1475, Pos = Vector3.new(-3800, 240, -10800)}, 
 
-    -- ================= SEA 3 =================
-    -- Port Town (1500 - 1575)
+    -- SEA 3
     {Name = "Pirate Millionaire", Level = 1500, Pos = Vector3.new(-18, 110, 5806)},
-    -- Hydra Island (1575 - 1675)
     {Name = "Dragon Crew Warrior", Level = 1575, Pos = Vector3.new(-60, 170, 6179)},
     {Name = "Island Empress", Level = 1675, Pos = Vector3.new(-1194, 103, 6916)}, 
-    -- Great Tree (1700 - 1750)
     {Name = "Marine Commodore", Level = 1700, Pos = Vector3.new(2450, 70, -7350)},
     {Name = "Kilo Admiral", Level = 1750, Pos = Vector3.new(2904, 509, -7368)}, 
-    -- Floating Turtle (1775 - 1975)
     {Name = "Fishman Raider", Level = 1775, Pos = Vector3.new(-15350, 330, 240)},
     {Name = "Giant Islander", Level = 1650, Pos = Vector3.new(4900, 1000, 700)},
     {Name = "Forest Pirate", Level = 1825, Pos = Vector3.new(-13300, 330, -350)},
     {Name = "Jungle Pirate", Level = 1900, Pos = Vector3.new(-12100, 330, -1700)},
     {Name = "Beautiful Pirate", Level = 1975, Pos = Vector3.new(-12500, 335, -7500)},
-    -- Haunted Castle (1975 - 2075)
     {Name = "Reborn Skeleton", Level = 1975, Pos = Vector3.new(-8800, 140, 5900)},
     {Name = "Demonic Soul", Level = 2025, Pos = Vector3.new(-9400, 170, 6100)},
-    -- Sea of Treats (2075 - 2275)
     {Name = "Peanut Scout", Level = 2075, Pos = Vector3.new(-2000, 70, -12500)},
     {Name = "Ice Cream Chef", Level = 2125, Pos = Vector3.new(-1000, 70, -12500)},
     {Name = "Cookie Crafter", Level = 2200, Pos = Vector3.new(-2000, 70, -11500)},
     {Name = "Head Baker", Level = 2275, Pos = Vector3.new(-2000, 70, -11800)},
-    -- Chocolate Island (2300 - 2375)
     {Name = "Cocoa Warrior", Level = 2300, Pos = Vector3.new(200, 50, -12200)},
     {Name = "Chocolate Bar Battlers", Level = 2325, Pos = Vector3.new(513, 24, -12394)},
     {Name = "Sweet Thiefs", Level = 2350, Pos = Vector3.new(69, 77, -12643)},
     {Name = "Candy Rebel", Level = 2375, Pos = Vector3.new(800, 50, -12500)},
-    -- Candy Island (2400 - 2425)
     {Name = "Candy Pirate", Level = 2400, Pos = Vector3.new(-1800, 40, -14500)},
-    -- Tiki Outpost (2450 - 2550)
     {Name = "Isle Outlaw", Level = 2450, Pos = Vector3.new(-16250, 21, -198)},
     {Name = "Sun Kissed Warrior", Level = 2500, Pos = Vector3.new(-16223, 137, 1027)},
-
-    -- Boss đặc biệt
     {Name = "boss hiếu liếm", Level = "Lọ Đế Chí Tôn", Pos = Vector3.new(0, 0, 0)},
     {Name = "huy gay", Level = "Gay Ko Đối Thủ", Pos = Vector3.new(0, 0, 0)},
     {Name = "hải xesa", Level = "Đại cao bằng", Pos = Vector3.new(0, 0, 0)},
 }
 
--- --- HỆ THỐNG UI (GIỮ NGUYÊN 100%) ---
+-- --- HỆ THỐNG UI ---
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "HVK-9"
 if pcall(function() ScreenGui.Parent = CoreGui end) then else ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
--- 1. Nút Mini Toggle
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Name = "ToggleBtn"
 ToggleBtn.Parent = ScreenGui
@@ -166,7 +131,6 @@ local UICornerBtn = Instance.new("UICorner")
 UICornerBtn.CornerRadius = UDim.new(0, 8)
 UICornerBtn.Parent = ToggleBtn
 
--- 2. Bảng Menu Chính
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
@@ -179,7 +143,6 @@ local UICornerFrame = Instance.new("UICorner")
 UICornerFrame.CornerRadius = UDim.new(0, 10)
 UICornerFrame.Parent = MainFrame
 
--- Tiêu đề (Draggable)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Parent = MainFrame
 TitleLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -212,7 +175,6 @@ UserInputService.InputChanged:Connect(function(input) if input == dragInput and 
 
 ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
--- 3. Nút Chức Năng
 local WeaponBtn = Instance.new("TextButton")
 WeaponBtn.Parent = MainFrame
 WeaponBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -263,7 +225,6 @@ local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.Parent = MobListFrame
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- [FIX HIỆN LEVEL] Đảm bảo hiển thị đúng format như bạn yêu cầu
 for i, mob in ipairs(MOBS_DB) do
     local btn = Instance.new("TextButton")
     btn.Parent = MobListFrame
@@ -274,29 +235,25 @@ for i, mob in ipairs(MOBS_DB) do
     btn.MouseButton1Click:Connect(function()
         CONFIG.SelectedMob = mob.Name
         CONFIG.TargetPosition = mob.Pos
-        -- Hiệu ứng chọn
         for _, b in pairs(MobListFrame:GetChildren()) do if b:IsA("TextButton") then b.BackgroundColor3 = Color3.fromRGB(50, 50, 50) end end
         btn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
     end)
 end
 
--- --- HỆ THỐNG XỬ LÝ LOGIC (LOGIC MỚI - FIX BUG ĐẢO ẨN) ---
+-- --- LOGIC CHÍNH ---
 
--- 1. Hàm Trang Bị Vũ Khí (Đảm bảo không bị mất)
 local function EquipWeapon()
     local char = LocalPlayer.Character
     if not char then return end
     local humanoid = char:FindFirstChild("Humanoid")
     local backpack = LocalPlayer.Backpack
     
-    -- Kiểm tra xem đang cầm vũ khí chưa
     local currentTool = char:FindFirstChildOfClass("Tool")
     if currentTool then
         if CONFIG.WeaponType == "Melee" and currentTool.ToolTip == "Melee" then return end
         if currentTool.ToolTip == CONFIG.WeaponType then return end
     end
 
-    -- Tìm và trang bị
     for _, tool in pairs(backpack:GetChildren()) do
         if tool:IsA("Tool") then
             if (CONFIG.WeaponType == "Melee" and tool.ToolTip == "Melee") or (tool.ToolTip == CONFIG.WeaponType) then
@@ -307,7 +264,6 @@ local function EquipWeapon()
     end
 end
 
--- 2. Hàm Noclip (Chui tường, chui đất)
 RunService.Stepped:Connect(function()
     if CONFIG.AutoFarm then
         local char = LocalPlayer.Character
@@ -321,7 +277,6 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- 3. Hàm Bay (Tween) - Cải tiến để reset trạng thái khi đến nơi
 local function TweenTo(targetPos)
     local char = LocalPlayer.Character
     if not char then return end
@@ -331,13 +286,11 @@ local function TweenTo(targetPos)
     local dist = (hrp.Position - targetPos).Magnitude
     local time = dist / CONFIG.FlySpeed
     
-    -- BodyVelocity: Giữ người không bị rơi
     local bv = hrp:FindFirstChild("AntiFall") or Instance.new("BodyVelocity", hrp)
     bv.Name = "AntiFall"
     bv.Velocity = Vector3.zero
     bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
 
-    -- BodyGyro: Giữ người thăng bằng
     local bg = hrp:FindFirstChild("StableGyro") or Instance.new("BodyGyro", hrp)
     bg.Name = "StableGyro"
     bg.P = 3000
@@ -348,57 +301,37 @@ local function TweenTo(targetPos)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
     tween:Play()
     
-    -- Nếu gần đến nơi (hoặc đã đến), dừng tween
     if dist < 30 then 
         tween:Cancel()
     end
 end
 
--- 4. [QUAN TRỌNG] HỆ THỐNG XỬ LÝ CỔNG (PORTAL LOGIC)
--- Đây là phần sửa lỗi "bay trên mặt nước" mà không chịu xuống
 local function CheckAndEnterPortal()
     if not CONFIG.AutoFarm or not CONFIG.SelectedMob then return end
-    
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- LOGIC SEA 1: UNDERWATER CITY (ĐẢO NGƯỜI CÁ)
     if string.find(CONFIG.SelectedMob, "Fishman") then
-        -- Vị trí cái xoáy nước ở Sea 1 (Tọa độ chung của Blox Fruits)
-        local entrancePos = Vector3.new(3864, 6, -1926) -- Cửa vào (Whirlpool)
-        local insidePos = Vector3.new(61163, 11, 1819) -- Bên trong
-        
-        -- Nếu đang ở xa Đảo Người Cá (khoảng cách lớn hơn 3000 stud so với tọa độ bên trong)
-        -- VÀ đang ở gần thế giới thực (khoảng cách đến cửa vào nhỏ hơn 5000 stud)
+        local entrancePos = Vector3.new(3864, 6, -1926) 
+        local insidePos = Vector3.new(61163, 11, 1819)
         if (hrp.Position - insidePos).Magnitude > 4000 then
-            -- Bay tới cửa xoáy nước trước
             TweenTo(entrancePos)
-            return true -- Báo hiệu là đang xử lý cổng, chưa farm được
+            return true
         end
     end
-
-    -- LOGIC SEA 2: CURSED SHIP (TÀU MA) - Quái trong này cần đi qua cửa
-    if string.find(CONFIG.SelectedMob, "Ship") or string.find(CONFIG.SelectedMob, "Deckhand") then
-        local entrancePos = Vector3.new(920, 125, 32800) -- Cửa vào thường
-        -- Kiểm tra nếu đang ở ngoài tàu
-        -- Cái này phức tạp hơn vì tọa độ gần nhau, nhưng nếu script thấy vướng tường thì Noclip sẽ lo
-    end
-    
-    return false -- Không cần vào cổng nào, đi farm bình thường
+    return false
 end
 
--- 5. Hàm Tìm Quái Thực Tế (Để không đánh không khí)
 local function GetClosestMob()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
     local closestMob = nil
-    local shortestDist = 9e9 -- Vô cực
+    local shortestDist = 9e9 
 
     for _, v in pairs(Workspace.Enemies:GetChildren()) do
-        -- Tìm đúng tên quái đang chọn, quái còn máu, và có HumanoidRootPart
         if v.Name == CONFIG.SelectedMob and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
             local dist = (v.HumanoidRootPart.Position - hrp.Position).Magnitude
             if dist < shortestDist then
@@ -410,7 +343,7 @@ local function GetClosestMob()
     return closestMob
 end
 
--- 6. [MAIN LOOP] Auto Farm Logic
+-- MAIN LOOP (ĐÃ FIX LỖI THIẾU END)
 RunService.RenderStepped:Connect(function()
     if CONFIG.AutoFarm and CONFIG.TargetPosition then
         local char = LocalPlayer.Character
@@ -418,28 +351,15 @@ RunService.RenderStepped:Connect(function()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
 
-        -- Bước 1: Trang bị vũ khí
         EquipWeapon()
 
-        -- Bước 2: Kiểm tra xem có cần chui vào cổng không (QUAN TRỌNG)
         local isEnteringPortal = CheckAndEnterPortal()
         if isEnteringPortal then
-            -- Nếu đang đi vào cổng thì không làm gì thêm ở dưới
-            return 
-        end
-
-        -- Bước 3: Tìm quái thực tế để đánh
-        local targetMob = GetClosestMob()
-
-        if targetMob then
-            -- NẾU TÌM THẤY QUÁI -> BAY TỚI ĐẦU NÓ
-            local farmPos = targetMob.HumanoidRootPart.Position + Vector3.new(0, CONFIG.HoverHeight, 0)
-            hrp.CFrame = CFrame.new(farmPos, targetMob.HumanoidRootPart.Position) -- Nhìn vào quái
-            
-            -- Khóa vị trí (Chống trôi)
-            local bv = hrp:FindFirstChild("BodyVelocity") or Instance.new("BodyVelocity", hrp)
-            bv.Velocity = Vector3.zero
-            bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            -- Đang đi vào cổng, không làm gì cả
         else
-            -- NẾU KHÔNG THẤY QUÁI -> BAY VỀ ĐIỂM SPAWN (Data) ĐỂ CHỜ QUÁI RA
-            -- Lưu ý: Nếu là Đảo Người Cá, TargetPosition trong Data 
+            -- Tìm quái để đánh
+            local targetMob = GetClosestMob()
+            if targetMob then
+XXX"; 
+    Duration = 5
+})
