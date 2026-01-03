@@ -103,7 +103,7 @@ local MOBS_DB = {
     {Name = "Gorilla King", Level = 25, Pos = Vector3.new(-1130, 6, -450), Sea = 1}, 
     {Name = "Pirate", Level = 35, Pos = Vector3.new(-1130, 4, 3850), Sea = 1},
     {Name = "Brute", Level = 45, Pos = Vector3.new(-1149, 96, 4309), Sea = 1},
-    {Name = "Bobby", Level = 55, Pos = Vector3.new(-1152, 57, 4174), Sea = 1}, 
+    {Name = "Chef", Level = 55, Pos = Vector3.new(-1152, 57, 4174), Sea = 1}, 
     {Name = "Desert Bandit", Level = 60, Pos = Vector3.new(900, 6, 4380), Sea = 1},
     {Name = "Desert Officer", Level = 70, Pos = Vector3.new(1560, 6, 4380), Sea = 1},
     {Name = "Snow Bandit", Level = 90, Pos = Vector3.new(1380, 87, -1300), Sea = 1},
