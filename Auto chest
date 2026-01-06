@@ -309,3 +309,4 @@ task.spawn(function()
         end
     end
 end)
+StarterGui:SetCore("SendNotification", {Title = "HVK-9"; Text = "auto chest đã khởi động"; Duration = 5})
