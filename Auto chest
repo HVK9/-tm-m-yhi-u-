@@ -1,13 +1,14 @@
 --[[ 
-    AUTO CHEST SEA 1 - V4 (CONTROL VERSION)
-    - UI Trong suốt, bấm vào chữ để Bật/Tắt.
-    - Màu chữ thay đổi theo trạng thái (Đỏ/Xanh).
-    - Tối ưu hóa cực nhẹ (Lite Logic).
+    AUTO CHEST V10 - DRAGGABLE & SIMPLE UI
+    - UI có thể kéo thả khắp màn hình (PC & Mobile).
+    - Text hiển thị đơn giản: Auto Chest: ON / OFF.
+    - Giữ nguyên core V9 (Auto Detect Sea, Anti-Stuck).
 ]]
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService") -- Thêm service để xử lý kéo thả
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 
@@ -15,100 +16,207 @@ local LocalPlayer = Players.LocalPlayer
 
 -- // CẤU HÌNH //
 local Config = {
-    Speed = 350,             -- Tốc độ bay
-    MinDistance = 8,         -- Khoảng cách nhặt
-    IslandRadius = 3500,     -- Bán kính đảo
-    WaitTime = 0.1           -- Thời gian nghỉ
+    Speed = 350,
+    MinDistance = 8,
+    IslandRadius = 5000, 
+    WaitTime = 0.1
 }
 
--- Biến trạng thái toàn cục
-_G.AutoChestEnabled = false -- Mặc định là TẮT
-local BlacklistedChests = {} -- Rương đã ăn
-local ChestCache = {}        -- Danh sách rương tạm thời
-local currentTween = nil     -- Lưu tween hiện tại để hủy khi tắt
-
-local Islands = {
-    {Name = "Starter Island",   Pos = Vector3.new(1000, 100, 1000)},
-    {Name = "Jungle (Khi)",     Pos = Vector3.new(-1600, 50, 300)},
-    {Name = "Pirate Village",   Pos = Vector3.new(-1200, 50, 3900)},
-    {Name = "Desert (Sa Mac)",  Pos = Vector3.new(1000, 50, 4100)},
-    {Name = "Snow (Tuyet)",     Pos = Vector3.new(1200, 50, -1400)},
-    {Name = "Marine Fortress",  Pos = Vector3.new(-5000, 50, 500)},
-    {Name = "Skypiea (Troi)",   Pos = Vector3.new(-4900, 600, -2000)},
-    {Name = "Prison (Tu)",      Pos = Vector3.new(5000, 50, 500)},
-    {Name = "Colosseum",        Pos = Vector3.new(-1600, 50, -2900)},
-    {Name = "Magma",            Pos = Vector3.new(-5400, 50, 8600)},
-    {Name = "Fountain City",    Pos = Vector3.new(5300, 50, 4100)},
+-- // DỮ LIỆU MAP //
+local SeaMaps = {
+    Sea1 = {
+        {Name = "Starter Pirate",   Pos = Vector3.new(1000, 100, 1000)},
+        {Name = "Marine Starter",   Pos = Vector3.new(-2500, 100, 2000)},
+        {Name = "Jungle",           Pos = Vector3.new(-1600, 50, 300)},
+        {Name = "Pirate Village",   Pos = Vector3.new(-1200, 50, 3900)},
+        {Name = "Desert",           Pos = Vector3.new(1000, 50, 4100)},
+        {Name = "Frozen Village",   Pos = Vector3.new(1200, 50, -1400)},
+        {Name = "Marine Fortress",  Pos = Vector3.new(-5000, 50, 500)},
+        {Name = "Skypiea",          Pos = Vector3.new(-4900, 600, -2000)},
+        {Name = "Prison",           Pos = Vector3.new(5000, 50, 500)},
+        {Name = "Colosseum",        Pos = Vector3.new(-1600, 50, -2900)},
+        {Name = "Magma Village",    Pos = Vector3.new(-5400, 50, 8600)},
+        {Name = "Fountain City",    Pos = Vector3.new(5300, 50, 4100)},
+    },
+    Sea2 = {
+        {Name = "Kingdom of Rose",  Pos = Vector3.new(0, 100, 0)},
+        {Name = "Green Zone",       Pos = Vector3.new(-2500, 100, -1500)},
+        {Name = "Graveyard",        Pos = Vector3.new(-5500, 100, -50)},
+        {Name = "Snow Mountain",    Pos = Vector3.new(1000, 400, -5500)},
+        {Name = "Hot and Cold",     Pos = Vector3.new(-5700, 100, -5500)},
+        {Name = "Cursed Ship",      Pos = Vector3.new(1000, 100, 4500)},
+        {Name = "Ice Castle",       Pos = Vector3.new(5500, 100, -6000)},
+        {Name = "Forgotten Island", Pos = Vector3.new(-3000, 100, -9000)},
+    },
+    Sea3 = {
+        {Name = "Port Town",        Pos = Vector3.new(-300, 100, 5500)},
+        {Name = "Hydra Island",     Pos = Vector3.new(5500, 200, 600)},
+        {Name = "Great Tree",       Pos = Vector3.new(2500, 100, -7000)},
+        {Name = "Floating Turtle",  Pos = Vector3.new(-2000, 100, -2500)},
+        {Name = "Castle on Sea",    Pos = Vector3.new(-5000, 300, 500)},
+        {Name = "Haunted Castle",   Pos = Vector3.new(-9500, 150, 5500)},
+        {Name = "Peanut Land",      Pos = Vector3.new(-2000, 100, -11000)},
+        {Name = "Cake Land",        Pos = Vector3.new(-2000, 100, -12500)},
+    }
 }
 
-local currentIslandIndex = 1
+-- // BIẾN TOÀN CỤC //
+_G.AutoChestEnabled = false 
+local BlacklistedChests = {} 
+local ChestCache = {}        
+local currentTween = nil     
+local CurrentMapList = {} 
 local isTraveling = true 
 
--- // TẠO UI (BUTTON TRONG SUỐT) //
+-- // AUTO DETECT SEA (Chạy ngầm để lấy list map) //
+local function DetectSea()
+    if Workspace.Map:FindFirstChild("Turtle") or Workspace.Map:FindFirstChild("SeaCastle") then
+        return SeaMaps.Sea3
+    elseif Workspace.Map:FindFirstChild("GreenZone") or Workspace.Map:FindFirstChild("Factory") then
+        return SeaMaps.Sea2
+    elseif Workspace.Map:FindFirstChild("Jungle") or Workspace.Map:FindFirstChild("Fountain City") then
+        return SeaMaps.Sea1
+    else
+        local pid = game.PlaceId
+        if pid == 7449423635 then return SeaMaps.Sea3
+        elseif pid == 4442272183 then return SeaMaps.Sea2
+        else return SeaMaps.Sea1 end
+    end
+end
+CurrentMapList = DetectSea()
+
+-- // UI SETUP (DRAGGABLE & SIMPLE) //
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AutoChestControl"
--- Ưu tiên đưa vào CoreGui để an toàn, nếu không thì PlayerGui
+ScreenGui.Name = "AutoChestV10"
 pcall(function() ScreenGui.Parent = CoreGui end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Name = "StatusBtn"
-ToggleBtn.Size = UDim2.new(0, 400, 0, 40) -- Kích thước vùng bấm
-ToggleBtn.Position = UDim2.new(0.5, -200, 0, 10) -- Chính giữa trên cùng
-ToggleBtn.BackgroundTransparency = 1 -- [QUAN TRỌNG] Trong suốt hoàn toàn
-ToggleBtn.Text = "🔴 AUTO CHEST: OFF (Click to Start)"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 50, 50) -- Màu ĐỎ (Mặc định tắt)
-ToggleBtn.Font = Enum.Font.Code
-ToggleBtn.TextSize = 18
-ToggleBtn.TextStrokeTransparency = 0.5 -- Viền chữ nhẹ để dễ nhìn
-ToggleBtn.Parent = ScreenGui
+local StatusBtn = Instance.new("TextButton")
+StatusBtn.Name = "DragButton"
+StatusBtn.Position = UDim2.new(0.5, -75, 0.1, 0) -- Vị trí mặc định ở trên cùng giữa
+StatusBtn.Size = UDim2.new(0, 150, 0, 40)
+StatusBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+StatusBtn.BackgroundTransparency = 0.2
+StatusBtn.Text = "Auto Chest: OFF"
+StatusBtn.TextColor3 = Color3.fromRGB(255, 50, 50) -- Mặc định ĐỎ
+StatusBtn.Font = Enum.Font.GothamBold
+StatusBtn.TextSize = 16
+StatusBtn.Parent = ScreenGui
 
--- // HÀM DỪNG HOẠT ĐỘNG (CLEANUP) //
-local function StopScript()
-    if currentTween then currentTween:Cancel() end
-    
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        local bv = char.HumanoidRootPart:FindFirstChild("BodyVelocity")
-        if bv then bv:Destroy() end -- Xóa lực bay để nhân vật rơi xuống
-    end
+-- Trang trí cho đẹp
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = StatusBtn
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 255, 255)
+stroke.Thickness = 1.5
+stroke.Parent = StatusBtn
+
+-- // HÀM KÉO THẢ (DRAG LOGIC) //
+local dragging, dragInput, dragStart, startPos
+local function Update(input)
+    local delta = input.Position - dragStart
+    StatusBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
--- // XỬ LÝ NÚT BẤM //
-ToggleBtn.MouseButton1Click:Connect(function()
-    _G.AutoChestEnabled = not _G.AutoChestEnabled
-    
-    if _G.AutoChestEnabled then
-        -- KHI BẬT
-        ToggleBtn.Text = "🟢 AUTO CHEST: RUNNING..."
-        ToggleBtn.TextColor3 = Color3.fromRGB(50, 255, 50) -- Màu XANH
-    else
-        -- KHI TẮT
-        ToggleBtn.Text = "🔴 AUTO CHEST: PAUSED"
-        ToggleBtn.TextColor3 = Color3.fromRGB(255, 50, 50) -- Màu ĐỎ
-        StopScript()
+StatusBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = StatusBtn.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
     end
 end)
 
--- // NOCLIP (Chỉ chạy khi đang Bật) //
+StatusBtn.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        Update(input)
+    end
+end)
+
+-- // LOGIC NÚT BẤM //
+local function ReleaseCharacter()
+    if currentTween then currentTween:Cancel() end
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        for _, obj in pairs(hrp:GetChildren()) do
+            if obj.Name == "AutoChestVelocity" or obj:IsA("BodyVelocity") then obj:Destroy() end
+        end
+        hrp.Velocity = Vector3.zero 
+    end
+end
+
+StatusBtn.MouseButton1Click:Connect(function()
+    _G.AutoChestEnabled = not _G.AutoChestEnabled
+    
+    if _G.AutoChestEnabled then
+        -- KHI BẬT: CHUYỂN XANH LÁ
+        StatusBtn.Text = "Auto Chest: ON"
+        StatusBtn.TextColor3 = Color3.fromRGB(50, 255, 50) 
+        StatusBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- Làm nền tối đi chút cho nổi chữ
+        isTraveling = true 
+    else
+        -- KHI TẮT: CHUYỂN ĐỎ
+        StatusBtn.Text = "Auto Chest: OFF"
+        StatusBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
+        StatusBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        ReleaseCharacter() 
+    end
+end)
+
+-- // CÁC HÀM XỬ LÝ GAMEPLAY (GIỮ NGUYÊN TỪ V9) //
 RunService.Stepped:Connect(function()
     if _G.AutoChestEnabled and LocalPlayer.Character then
         for _, v in pairs(LocalPlayer.Character:GetChildren()) do
-            if v:IsA("BasePart") and v.CanCollide then
-                v.CanCollide = false
-            end
+            if v:IsA("BasePart") and v.CanCollide then v.CanCollide = false end
         end
     end
 end)
 
--- // HÀM BAY //
+RunService.Heartbeat:Connect(function()
+    if not _G.AutoChestEnabled then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local bv = char.HumanoidRootPart:FindFirstChild("AutoChestVelocity")
+            if bv then bv:Destroy() end 
+        end
+    end
+end)
+
+local function GetNearestIsland()
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    
+    local nearest = nil
+    local minDst = math.huge
+    for _, island in pairs(CurrentMapList) do
+        local dst = (hrp.Position - island.Pos).Magnitude
+        if dst < minDst then minDst = dst; nearest = island end
+    end
+    return nearest
+end
+
 local function TweenTo(targetPos)
     if not LocalPlayer.Character then return end
     local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    local bv = hrp:FindFirstChild("BodyVelocity") or Instance.new("BodyVelocity")
-    bv.Name = "BodyVelocity"
+    local bv = hrp:FindFirstChild("AutoChestVelocity") or Instance.new("BodyVelocity")
+    bv.Name = "AutoChestVelocity"
     bv.Velocity = Vector3.zero
     bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     bv.Parent = hrp
@@ -122,13 +230,8 @@ local function TweenTo(targetPos)
     return currentTween
 end
 
--- // HÀM QUÉT RƯƠNG (CACHE) //
 local function RefreshChestCache(centerPos)
     ChestCache = {} 
-    ToggleBtn.Text = "🟡 SCANNING ISLAND..." -- Màu vàng báo đang quét
-    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 0)
-    task.wait(0.2)
-    
     for _, v in pairs(Workspace:GetDescendants()) do
         if (v.Name == "Chest" or v.Name == "Rương" or string.find(v.Name, "Chest")) and (v:IsA("Part") or v:IsA("MeshPart")) then
             if not BlacklistedChests[v] and (v.Position - centerPos).Magnitude <= Config.IslandRadius then
@@ -136,84 +239,73 @@ local function RefreshChestCache(centerPos)
             end
         end
     end
-    -- Trả lại màu xanh
-    if _G.AutoChestEnabled then
-        ToggleBtn.Text = "🟢 FARMING: " .. #ChestCache .. " CHESTS"
-        ToggleBtn.TextColor3 = Color3.fromRGB(50, 255, 50)
-    end
 end
 
--- // VÒNG LẶP CHÍNH //
+-- // MAIN LOOP //
 task.spawn(function()
     while task.wait(0.1) do
-        -- Chỉ chạy logic khi biến Enabled là TRUE
         if _G.AutoChestEnabled then
             pcall(function()
-                local currentIsland = Islands[currentIslandIndex]
-                if not currentIsland then
-                    ToggleBtn.Text = "DONE ALL ISLANDS!"
-                    _G.AutoChestEnabled = false
-                    return
-                end
-
                 local char = LocalPlayer.Character
-                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-                local hrp = char.HumanoidRootPart
-
-                -- 1. DI CHUYỂN
-                if isTraveling then
-                    ToggleBtn.Text = "✈️ FLYING TO: " .. currentIsland.Name
-                    local tw = TweenTo(currentIsland.Pos)
-                    
-                    if (hrp.Position - currentIsland.Pos).Magnitude < 150 then
-                        if tw then tw:Cancel() end
-                        isTraveling = false
-                        RefreshChestCache(currentIsland.Pos)
-                    end
+                if not char or not char:FindFirstChild("HumanoidRootPart") or char.Humanoid.Health <= 0 then
+                    ReleaseCharacter()
+                    task.wait(1)
                     return
                 end
+                
+                local hrp = char.HumanoidRootPart
+                local targetIsland = GetNearestIsland()
+                
+                if not targetIsland then return end -- Đợi load map
 
-                -- 2. NHẶT RƯƠNG
-                local activeChests = {}
-                for _, c in pairs(ChestCache) do
-                    if c and c.Parent and not BlacklistedChests[c] then
-                        table.insert(activeChests, c)
-                    end
-                end
-                ChestCache = activeChests
-
-                if #ChestCache > 0 then
-                    -- Tìm cái gần nhất
-                    local targetChest = nil
-                    local minDst = math.huge
-                    for _, c in pairs(ChestCache) do
-                        local d = (hrp.Position - c.Position).Magnitude
-                        if d < minDst then minDst = d; targetChest = c end
-                    end
-                    
-                    if targetChest then
-                        ToggleBtn.Text = "🟢 COLLECTING: " .. currentIsland.Name .. " (" .. #ChestCache .. ")"
-                        TweenTo(targetChest.Position)
-                        
-                        if (hrp.Position - targetChest.Position).Magnitude < Config.MinDistance then
-                            hrp.CFrame = targetChest.CFrame
-                            task.wait(Config.WaitTime)
-                            
-                            BlacklistedChests[targetChest] = true
-                            targetChest.Transparency = 1
-                            targetChest.CanCollide = false
-                        end
+                if isTraveling then
+                    local dist = (hrp.Position - targetIsland.Pos).Magnitude
+                    if dist < 300 then
+                        if currentTween then currentTween:Cancel() end
+                        isTraveling = false
+                        RefreshChestCache(targetIsland.Pos)
+                    else
+                        TweenTo(targetIsland.Pos)
                     end
                 else
-                    -- Chuyển đảo
-                    ToggleBtn.Text = "✅ ISLAND CLEARED! NEXT..."
-                    task.wait(0.5)
-                    currentIslandIndex = currentIslandIndex + 1
-                    isTraveling = true
+                    local activeChests = {}
+                    for _, c in pairs(ChestCache) do
+                        if c and c.Parent and not BlacklistedChests[c] then table.insert(activeChests, c) end
+                    end
+                    ChestCache = activeChests
+
+                    if #ChestCache > 0 then
+                        local targetChest = nil
+                        local minDst = math.huge
+                        for _, c in pairs(ChestCache) do
+                            local d = (hrp.Position - c.Position).Magnitude
+                            if d < minDst then minDst = d; targetChest = c end
+                        end
+                        
+                        if targetChest then
+                            TweenTo(targetChest.Position)
+                            if (hrp.Position - targetChest.Position).Magnitude < Config.MinDistance then
+                                hrp.CFrame = targetChest.CFrame
+                                local bv = hrp:FindFirstChild("AutoChestVelocity")
+                                if bv then bv.MaxForce = Vector3.zero end
+                                task.wait(Config.WaitTime)
+                                BlacklistedChests[targetChest] = true
+                                targetChest.Transparency = 1; targetChest.CanCollide = false
+                            end
+                        end
+                    else
+                        -- Logic chuyển map giả lập
+                        local nextIndex = 1
+                        for i, v in ipairs(CurrentMapList) do
+                            if v.Name == targetIsland.Name then nextIndex = i + 1; break end
+                        end
+                        if nextIndex > #CurrentMapList then nextIndex = 1 end
+                        TweenTo(CurrentMapList[nextIndex].Pos)
+                        task.wait(2)
+                        isTraveling = true
+                    end
                 end
             end)
-        else
-            -- Nếu đang tắt, vòng lặp vẫn chạy nhưng không làm gì (chờ bật lại)
         end
     end
 end)
