@@ -1,0 +1,142 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local _G_AutoChest = false -- Biến toàn cục để kiểm soát trạng thái Bật/Tắt
+
+-- ==============================
+-- 1. TẠO UI (GIAO DIỆN)
+-- ==============================
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local ToggleBtn = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Name = "AutoChestGUI"
+ScreenGui.Parent = game.CoreGui -- Đặt vào CoreGui để không bị reset khi chết
+
+Frame.Name = "MainFrame"
+Frame.Parent = ScreenGui
+Frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Frame.Position = UDim2.new(0.1, 0, 0.1, 0) -- Vị trí trên màn hình
+Frame.Size = UDim2.new(0, 150, 0, 80)
+Frame.Active = true
+Frame.Draggable = true -- Cho phép kéo thả bảng
+
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Parent = Frame
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Màu đỏ (Tắt)
+ToggleBtn.Position = UDim2.new(0.1, 0, 0.25, 0)
+ToggleBtn.Size = UDim2.new(0.8, 0, 0.5, 0)
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.Text = "AUTO CHEST: OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 14
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 8)
+Corner.Parent = ToggleBtn
+
+-- ==============================
+-- 2. HÀM XỬ LÝ DI CHUYỂN (TWEEN)
+-- ==============================
+local function tweenTo(targetCFrame)
+    local Character = LocalPlayer.Character
+    if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local RootPart = Character.HumanoidRootPart
+    local Distance = (targetCFrame.Position - RootPart.Position).Magnitude
+    local Speed = 300 -- Tốc độ bay (Càng cao càng nhanh)
+    
+    local Info = TweenInfo.new(Distance / Speed, Enum.EasingStyle.Linear)
+    local Tween = TweenService:Create(RootPart, Info, {CFrame = targetCFrame})
+    
+    -- Giữ nhân vật không bị trọng lực kéo xuống khi bay
+    local BodyVelocity = Instance.new("BodyVelocity")
+    BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    BodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    BodyVelocity.Parent = RootPart
+
+    Tween:Play()
+    
+    -- Hủy BodyVelocity khi bay xong hoặc tắt auto
+    Tween.Completed:Connect(function()
+        BodyVelocity:Destroy()
+    end)
+    
+    return Tween
+end
+
+-- ==============================
+-- 3. LOGIC TÌM RƯƠNG VÀ VÒNG LẶP
+-- ==============================
+local function getClosestChest()
+    local Character = LocalPlayer.Character
+    local closestChest = nil
+    local minDistance = 2000 -- Khoảng cách tối đa để quét (Bán kính quét)
+
+    -- Lưu ý: Trong Blox Fruits, rương thường nằm trong folder hoặc rải rác.
+    -- Tên rương thường là "Chest1", "Chest2", "Chest3" hoặc tên cụ thể.
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj.Name:find("Chest") and (obj:IsA("Part") or obj:IsA("MeshPart")) then
+            -- Kiểm tra xem rương đã bị nhặt chưa (thường rương mở rồi sẽ mất TouchInterest hoặc trong suốt)
+            if obj.Transparency < 1 then 
+                local dist = (Character.HumanoidRootPart.Position - obj.Position).Magnitude
+                if dist < minDistance then
+                    minDistance = dist
+                    closestChest = obj
+                end
+            end
+        end
+    end
+    return closestChest
+end
+
+-- Vòng lặp chính
+task.spawn(function()
+    while true do
+        task.wait(0.5) -- Nghỉ nhẹ để không crash game
+        if _G_AutoChest then
+            local chest = getClosestChest()
+            
+            if chest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local tween = tweenTo(chest.CFrame)
+                
+                -- Đợi đến khi bay tới nơi
+                if tween then
+                    tween.Completed:Wait()
+                end
+                
+                -- Đợi 1 chút để game nhận diện đã nhặt rương
+                task.wait(1) 
+            end
+        end
+    end
+end)
+
+-- ==============================
+-- 4. XỬ LÝ SỰ KIỆN NÚT BẤM
+-- ==============================
+ToggleBtn.MouseButton1Click:Connect(function()
+    _G_AutoChest = not _G_AutoChest
+    if _G_AutoChest then
+        ToggleBtn.Text = "AUTO CHEST: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Xanh lá
+    else
+        ToggleBtn.Text = "AUTO CHEST: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Đỏ
+        
+        -- Dừng bay ngay lập tức nếu tắt
+        local Char = LocalPlayer.Character
+        if Char and Char:FindFirstChild("HumanoidRootPart") then
+             -- Hủy các BodyVelocity còn sót lại
+             for _, v in pairs(Char.HumanoidRootPart:GetChildren()) do
+                if v:IsA("BodyVelocity") then v:Destroy() end
+             end
+        end
+    end
+end)
+
+print("Script Loaded - made in HVK-9")
