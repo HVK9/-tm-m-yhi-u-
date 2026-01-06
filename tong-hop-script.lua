@@ -211,7 +211,7 @@ local MOBS_DB = {
     {Name = "Candy Pirate", Level = 2400, Pos = Vector3.new(-1800, 40, -14500), Sea = 3},
     {Name = "Isle Outlaw", Level = 2450, Pos = Vector3.new(-16250, 21, -198), Sea = 3},
     {Name = "Island Boy", Level = 2475, Pos = Vector3.new(-16500, 21, -100), Sea = 3},
-    {Name = "Sun Kissed Warrior", Level = 2500, Pos = Vector3.new(-16223, 137, 1027), Sea = 3},
+    {Name = "Sun-Kissed Warrior", Level = 2500, Pos = Vector3.new(-16223, 137, 1027), Sea = 3},
     {Name = "Isle Champion", Level = 2525, Pos = Vector3.new(-16400, 137, 1100), Sea = 3},
     {Name = "Shark Hunter", Level = 2575, Pos = Vector3.new(-17000, 20, 2000), Sea = 3}, 
 }
