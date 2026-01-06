@@ -2,343 +2,380 @@
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 local player = Players.LocalPlayer
 
--- CONFIG
-local UI_COLOR = Color3.fromRGB(30,30,30)
-local ACCENT = Color3.fromRGB(0,170,255)
-local TEXT = Color3.fromRGB(255,255,255)
+-- UI CONFIG
+local UI_COLOR = Color3.fromRGB(18, 18, 18) -- Đen nhám
+local ACCENT = Color3.fromRGB(0, 255, 128) -- Xanh Neon (Dễ nhìn)
+local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
+local SLIDER_BG = Color3.fromRGB(45, 45, 45)
 
--- FLY VARIABLES
+-- VARIABLES (LOGIC V6)
 local flying = false
-local flySpeed = 50 
+local nocliping = false
+local velocityEnabled = false
+local velocitySpeed = 50 
+
+local jumpEnabled = false
+local jumpPowerVal = 50
+
+local flySpeed = 50
 local bg, bv
 
--- NOCLIP VARIABLES
-local nocliping = false
-
 -- GUI SETUP
-local gui = Instance.new("ScreenGui")
-gui.Name = "HVK9_Menu_Fixed_Noclip"
-if player.PlayerGui:FindFirstChild("HVK9_Menu_Fixed_Noclip") then
-	player.PlayerGui.HVK9_Menu_Fixed_Noclip:Destroy()
+local guiName = "HVK_9"
+if player.PlayerGui:FindFirstChild(guiName) then
+    player.PlayerGui[guiName]:Destroy()
 end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = guiName
 gui.Parent = player.PlayerGui
 gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- === DRAGGABLE ===
+local function makeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
 
 -- === MAIN FRAME ===
 local main = Instance.new("Frame", gui)
 main.Name = "MainFrame"
-main.Size = UDim2.new(0,330,0,440) 
-main.Position = UDim2.new(0.5,-165,0.5,-220) 
+main.Size = UDim2.new(0, 360, 0, 480) -- To hơn một chút
+main.Position = UDim2.new(0.5, -180, 0.5, -240)
 main.BackgroundColor3 = UI_COLOR
-main.Active = true
-main.Draggable = true 
-main.Visible = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
+main.BorderSizePixel = 0
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", main).Color = ACCENT
+Instance.new("UIStroke", main).Thickness = 2
+makeDraggable(main)
 
--- === OPEN BUTTON ===
-local openBtn = Instance.new("TextButton", gui)
-openBtn.Name = "OpenButton"
-openBtn.Size = UDim2.new(0,50,0,50)
-openBtn.Position = UDim2.new(0, 20, 0.5, -25) 
-openBtn.BackgroundColor3 = UI_COLOR
-openBtn.Text = "H"
-openBtn.TextColor3 = ACCENT
-openBtn.Font = Enum.Font.GothamBold
-openBtn.TextSize = 30
-openBtn.Active = true
-openBtn.Draggable = true 
-openBtn.Visible = false
-Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0,12)
-local stroke = Instance.new("UIStroke", openBtn)
-stroke.Color = ACCENT
-stroke.Thickness = 2
-stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+-- HEADER
+local header = Instance.new("Frame", main)
+header.Size = UDim2.new(1, 0, 0, 50)
+header.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Instance.new("UICorner", header).CornerRadius = UDim.new(0, 12)
 
--- === MINIMIZE BUTTON ===
-local minBtn = Instance.new("TextButton", main)
-minBtn.Name = "MinButton"
-minBtn.Size = UDim2.new(0, 40, 0, 40)
-minBtn.Position = UDim2.new(1, -45, 0, 5) 
+local title = Instance.new("TextLabel", header)
+title.Text = "HVK9"
+title.Size = UDim2.new(1, -60, 1, 0)
+title.Position = UDim2.new(0, 20, 0, 0)
+title.BackgroundTransparency = 1
+title.TextColor3 = ACCENT
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 22
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- HIDE BUTTON
+local minBtn = Instance.new("TextButton", header)
+minBtn.Text = "_"
+minBtn.Size = UDim2.new(0, 50, 0, 50)
+minBtn.Position = UDim2.new(1, -50, 0, 0)
 minBtn.BackgroundTransparency = 1
-minBtn.Text = "-"
-minBtn.TextColor3 = TEXT
+minBtn.TextColor3 = TEXT_COLOR
 minBtn.Font = Enum.Font.GothamBold
 minBtn.TextSize = 35
 
-minBtn.MouseButton1Click:Connect(function()
-	main.Visible = false
-	openBtn.Visible = true
-end)
+-- OPEN BUTTON
+local openBtn = Instance.new("TextButton", gui)
+openBtn.Size = UDim2.new(0, 60, 0, 60)
+openBtn.Position = UDim2.new(0, 20, 0.5, -30)
+openBtn.BackgroundColor3 = UI_COLOR
+openBtn.Text = "HVK"
+openBtn.TextColor3 = ACCENT
+openBtn.Font = Enum.Font.GothamBold
+openBtn.TextSize = 28
+openBtn.Visible = false
+Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 16)
+Instance.new("UIStroke", openBtn).Color = ACCENT
+Instance.new("UIStroke", openBtn).Thickness = 3
+makeDraggable(openBtn)
 
-openBtn.MouseButton1Click:Connect(function()
-	openBtn.Visible = false
-	main.Visible = true
-end)
-
--- TITLE
-local title = Instance.new("TextLabel", main)
-title.Text = "HVK9"
-title.Size = UDim2.new(1,0,0,45)
-title.BackgroundTransparency = 1
-title.TextColor3 = TEXT
-title.Font = Enum.Font.GothamBold
-title.TextSize = 20
+-- TOGGLE UI
+local function toggleUI()
+    main.Visible = not main.Visible
+    openBtn.Visible = not main.Visible
+end
+minBtn.MouseButton1Click:Connect(toggleUI)
+openBtn.MouseButton1Click:Connect(toggleUI)
+UIS.InputBegan:Connect(function(input) if input.KeyCode == Enum.KeyCode.RightControl then toggleUI() end end)
 
 -- CONTAINER
-local container = Instance.new("Frame", main)
-container.Position = UDim2.new(0,15,0,55)
-container.Size = UDim2.new(1,-30,1,-65)
+local container = Instance.new("ScrollingFrame", main)
+container.Position = UDim2.new(0, 15, 0, 60)
+container.Size = UDim2.new(1, -30, 1, -75)
 container.BackgroundTransparency = 1
-
+container.ScrollBarThickness = 4
+container.ScrollBarImageColor3 = ACCENT
 local layout = Instance.new("UIListLayout", container)
-layout.Padding = UDim.new(0,12) 
-layout.FillDirection = Enum.FillDirection.Vertical
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+layout.Padding = UDim.new(0, 12) -- Khoảng cách giữa các nút rộng hơn
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- === FEATURE FUNCTION (LOGIC BẬT/TẮT CHUẨN) ===
-local function createFeature(name, min, max, default, callback)
-	local frame = Instance.new("Frame", container)
-	frame.Size = UDim2.new(1,0,0,85) 
-	frame.BackgroundTransparency = 1
-
-	local label = Instance.new("TextLabel", frame)
-	label.Text = name
-	label.Size = UDim2.new(1,-70,0,25)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = TEXT
-	label.Font = Enum.Font.GothamBold
-	label.TextSize = 15
-	label.TextXAlignment = Enum.TextXAlignment.Left
-
-	local value = Instance.new("TextLabel", frame)
-	value.Size = UDim2.new(0,60,0,25)
-	value.Position = UDim2.new(1,-60,0,0)
-	value.BackgroundTransparency = 1
-	value.TextColor3 = ACCENT
-	value.Text = tostring(default)
-	value.Font = Enum.Font.GothamBold
-	value.TextSize = 15
-
-	local bar = Instance.new("TextButton", frame)
-	bar.Size = UDim2.new(1,-60,0,32)
-	bar.Position = UDim2.new(0,0,0,35) 
-	bar.BackgroundColor3 = Color3.fromRGB(60,60,60)
-	bar.Text = ""
-	bar.AutoButtonColor = false
-	Instance.new("UICorner", bar).CornerRadius = UDim.new(0,8)
-
-	local fill = Instance.new("Frame", bar)
-	fill.BackgroundColor3 = ACCENT
-	fill.BorderSizePixel = 0
-	Instance.new("UICorner", fill).CornerRadius = UDim.new(0,8)
-
-	local toggle = Instance.new("TextButton", frame)
-	toggle.Size = UDim2.new(0,40,0,22)
-	toggle.Position = UDim2.new(1,-45,0,43) 
-	toggle.BackgroundColor3 = Color3.fromRGB(70,70,70)
-	toggle.Text = ""
-	Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
-
-	local current = default
-	local active = false
-	
-	local percent = (default - min) / (max - min)
-	fill.Size = UDim2.new(percent, 0, 1, 0)
-
-	local dragging = false
-	local function update(input)
-		local p = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-		fill.Size = UDim2.new(p, 0, 1, 0)
-		current = math.floor(min + (max - min) * p)
-		value.Text = tostring(current)
-		
-        if active then
-		    callback("VALUE", current)
-        end
-	end
-
-	bar.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			update(i)
-		end
-	end)
-
-	UIS.InputChanged:Connect(function(i)
-		if dragging and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then
-			update(i)
-		end
-	end)
-
-	UIS.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
-		end
-	end)
-
-	toggle.MouseButton1Click:Connect(function()
-		active = not active
-		toggle.BackgroundColor3 = active and ACCENT or Color3.fromRGB(70,70,70)
-        
-        if active then
-            callback("VALUE", current) 
-            callback("TOGGLE", true) 
-        else
-            callback("TOGGLE", false)
-        end
-	end)
-end
-
-local function createToggleFeature(name, callback)
+-- === UI HELPERS (BIGGER SLIDER) ===
+local function createSlider(name, min, max, default, callback)
     local frame = Instance.new("Frame", container)
-	frame.Size = UDim2.new(1,0,0,50) 
-	frame.BackgroundTransparency = 1
-
-	local label = Instance.new("TextLabel", frame)
-	label.Text = name
-	label.Size = UDim2.new(1,-70,0,25)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = TEXT
-	label.Font = Enum.Font.GothamBold
-	label.TextSize = 15
-	label.TextXAlignment = Enum.TextXAlignment.Left
+    frame.Size = UDim2.new(1, 0, 0, 75) -- Tăng chiều cao khung chứa
+    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
     
-	local toggle = Instance.new("TextButton", frame)
-	toggle.Size = UDim2.new(0,50,0,30)
-	toggle.Position = UDim2.new(1,-60,0.5,-15) 
-	toggle.BackgroundColor3 = Color3.fromRGB(70,70,70)
-	toggle.Text = ""
-    toggle.TextSize = 0
-	Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
+    -- Tên chức năng
+    local lbl = Instance.new("TextLabel", frame)
+    lbl.Text = name
+    lbl.Size = UDim2.new(1, 0, 0, 25)
+    lbl.Position = UDim2.new(0, 15, 0, 5)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = TEXT_COLOR
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 16
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
 
-	local active = false
-	toggle.MouseButton1Click:Connect(function()
-		active = not active
-		toggle.BackgroundColor3 = active and ACCENT or Color3.fromRGB(70,70,70)
-		callback(active)
-	end)
-end
-
--- --- DEFINITIONS ---
-
--- SPEED
-createFeature("Speed", 16, 250, 16, function(mode, val)
-	local char = player.Character
-	local h = char and char:FindFirstChild("Humanoid")
-	if not h then return end
-
-	if mode == "VALUE" then 
-        h.WalkSpeed = val
-    elseif mode == "TOGGLE" and val == false then
-        h.WalkSpeed = 16 
-	end
-end)
-
--- JUMP
-createFeature("Jump", 50, 300, 50, function(mode, val)
-	local char = player.Character
-	local h = char and char:FindFirstChild("Humanoid")
-	if not h then return end
+    -- Hiển thị số
+    local valLbl = Instance.new("TextLabel", frame)
+    valLbl.Text = tostring(default)
+    valLbl.Size = UDim2.new(0, 60, 0, 25)
+    valLbl.Position = UDim2.new(1, -65, 0, 5)
+    valLbl.BackgroundTransparency = 1
+    valLbl.TextColor3 = ACCENT
+    valLbl.Font = Enum.Font.GothamBold
+    valLbl.TextSize = 18
     
-	if mode == "VALUE" then 
-        h.UseJumpPower = true
-        h.JumpPower = val
-    elseif mode == "TOGGLE" and val == false then
-        h.JumpPower = 50 
-	end
-end)
-
--- FLY
-local function startFly()
-	local c = player.Character
-	if not c then return end
-	local hrp = c:FindFirstChild("HumanoidRootPart")
-	local h = c:FindFirstChild("Humanoid")
-	if not hrp or not h then return end
-
-	h.AutoRotate = false
-	h.PlatformStand = true -- Fly thì tắt vật lý chân
-
-	if bg then bg:Destroy() end
-	if bv then bv:Destroy() end
-
-	bg = Instance.new("BodyGyro", hrp)
-	bg.MaxTorque = Vector3.new(9e9,9e9,9e9)
-	bg.P = 9e4
-	bg.CFrame = workspace.CurrentCamera.CFrame
-
-	bv = Instance.new("BodyVelocity", hrp)
-	bv.MaxForce = Vector3.new(9e9,9e9,9e9)
-	bv.Velocity = Vector3.zero
-	
-	flying = true
+    -- Thanh trượt (Nền) - TO VÀ DÀY HƠN
+    local bar = Instance.new("TextButton", frame)
+    bar.Size = UDim2.new(1, -30, 0, 16) -- Độ dày 16px (cũ là 6px)
+    bar.Position = UDim2.new(0, 15, 0, 45)
+    bar.BackgroundColor3 = SLIDER_BG
+    bar.Text = ""
+    bar.AutoButtonColor = false
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+    
+    -- Thanh trượt (Phần đã kéo)
+    local fill = Instance.new("Frame", bar)
+    fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
+    fill.BackgroundColor3 = ACCENT
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+    
+    -- NÚM KÉO (KNOB) - Để dễ nhìn và dễ cầm
+    local knob = Instance.new("Frame", fill)
+    knob.Size = UDim2.new(0, 24, 0, 24) -- Núm tròn to 24px
+    knob.AnchorPoint = Vector2.new(0.5, 0.5)
+    knob.Position = UDim2.new(1, 0, 0.5, 0)
+    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    Instance.new("UIStroke", knob).Color = ACCENT
+    Instance.new("UIStroke", knob).Thickness = 2
+    
+    local function update(input)
+        local p = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+        fill.Size = UDim2.new(p, 0, 1, 0)
+        local val = math.floor(min + ((max - min) * p))
+        valLbl.Text = tostring(val)
+        callback(val)
+    end
+    
+    local dragging = false
+    bar.InputBegan:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then 
+            dragging = true 
+            update(i) 
+        end 
+    end)
+    UIS.InputChanged:Connect(function(i) 
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then 
+            update(i) 
+        end 
+    end)
+    UIS.InputEnded:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then 
+            dragging = false 
+        end 
+    end)
 end
 
-local function stopFly()
-	flying = false
-	if bg then bg:Destroy() bg = nil end
-	if bv then bv:Destroy() bv = nil end
-	
-	local c = player.Character
-	local h = c and c:FindFirstChild("Humanoid")
-	if h then 
-		h.PlatformStand = false 
-		h.AutoRotate = true
-	end
+local function createToggle(name, callback)
+    local frame = Instance.new("Frame", container)
+    frame.Size = UDim2.new(1, 0, 0, 50) -- Toggle cũng to hơn
+    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local lbl = Instance.new("TextLabel", frame)
+    lbl.Text = name
+    lbl.Size = UDim2.new(1, -60, 1, 0)
+    lbl.Position = UDim2.new(0, 15, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = TEXT_COLOR
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 16
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(0, 30, 0, 30) -- Nút tick to hơn
+    btn.Position = UDim2.new(1, -45, 0.5, -15)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.Text = ""
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    
+    local active = false
+    btn.MouseButton1Click:Connect(function()
+        active = not active
+        btn.BackgroundColor3 = active and ACCENT or Color3.fromRGB(60, 60, 60)
+        callback(active)
+    end)
 end
 
-createFeature("Fly Speed", 0, 300, 50, function(mode, val)
-    if mode == "VALUE" then
-        flySpeed = val
-    elseif mode == "TOGGLE" then
-        if val then startFly() else stopFly() end
+-- === LOGIC V6 (GIỮ NGUYÊN VÌ ỔN ĐỊNH) ===
+
+RS.Heartbeat:Connect(function()
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    
+    if not hum or not root then return end
+
+    -- VELOCITY LOGIC
+    if velocityEnabled and not flying then
+        if hum.MoveDirection.Magnitude > 0 then
+            root.AssemblyLinearVelocity = Vector3.new(
+                hum.MoveDirection.X * velocitySpeed, 
+                root.AssemblyLinearVelocity.Y, 
+                hum.MoveDirection.Z * velocitySpeed
+            )
+        end
+    end
+
+    -- JUMP LOGIC
+    if jumpEnabled then
+        if hum.JumpPower ~= jumpPowerVal then
+            hum.UseJumpPower = true
+            hum.JumpPower = jumpPowerVal
+        end
     end
 end)
 
--- LOGIC FLY (Chỉ xử lý bay)
-RS.RenderStepped:Connect(function()
-	if not flying then return end
-	local c = player.Character
-	local hrp = c and c:FindFirstChild("HumanoidRootPart")
-	local h = c and c:FindFirstChild("Humanoid")
-	if not hrp or not h then return end
-
-	local cam = workspace.CurrentCamera
-	if bg then bg.CFrame = cam.CFrame end
-
-	local m = h.MoveDirection
-	
-	if bv and hrp then
-		if m.Magnitude == 0 then
-			bv.Velocity = Vector3.zero
-		else
-			local localMove = cam.CFrame:VectorToObjectSpace(m)
-			bv.Velocity = (cam.CFrame.LookVector * -localMove.Z + cam.CFrame.RightVector * localMove.X) * flySpeed
-		end
-	end
-end)
-
--- === NOCLIP MỚI (DÙNG CANCOLLIDE = FALSE) ===
--- Logic này hoạt động hoàn hảo với Speed cao
+-- NOCLIP
 RS.Stepped:Connect(function()
-	if nocliping then
-		if player.Character then
-			for _, part in pairs(player.Character:GetDescendants()) do
-				if part:IsA("BasePart") and part.CanCollide == true then
-					part.CanCollide = false
-				end
-			end
-		end
-	end
+    if nocliping and player.Character then
+        for _, part in pairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
 end)
 
-createToggleFeature("Noclip (Wall)", function(active)
-	nocliping = active
+-- FLY SYSTEM
+local function startFly()
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not root or not hum then return end
+
+    if bg then bg:Destroy() end
+    if bv then bv:Destroy() end
+
+    bv = Instance.new("BodyVelocity", root)
+    bv.Velocity = Vector3.zero
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+    bg = Instance.new("BodyGyro", root)
+    bg.P = 9e4
+    bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bg.CFrame = root.CFrame
+
+    hum.PlatformStand = true
+    flying = true
+end
+
+local function stopFly()
+    flying = false
+    if bg then bg:Destroy() bg = nil end
+    if bv then bv:Destroy() bv = nil end
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.PlatformStand = false
+        player.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero 
+    end
+end
+
+RS.Heartbeat:Connect(function()
+    if flying and player.Character then
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        local cam = workspace.CurrentCamera
+        bg.CFrame = cam.CFrame
+        
+        local move = Vector3.zero
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, 1, 0) end
+        
+        if move.Magnitude > 0 then move = move.Unit * flySpeed end
+        bv.Velocity = move
+    end
 end)
 
-player.CharacterAdded:Connect(function(char)
-	char:WaitForChild("HumanoidRootPart")
-	-- Reset biến nếu cần thiết, hoặc để người dùng tự bật lại
+player.CharacterAdded:Connect(function()
+    flying = false
 end)
+
+-- === UI ELEMENTS ===
+
+createToggle("Velocity Force (On/Off)", function(val)
+    velocityEnabled = val
+end)
+
+createSlider("Run Speed", 20, 200, 50, function(val)
+    velocitySpeed = val
+end)
+
+createToggle("Force Jump (On/Off)", function(val)
+    jumpEnabled = val
+end)
+
+createSlider("Jump Power", 50, 400, 50, function(val)
+    jumpPowerVal = val
+end)
+
+createToggle("NoClip (Wall)", function(val)
+    nocliping = val
+end)
+
+createToggle("Fly (Key F)", function(val)
+    if val then startFly() else stopFly() end
+end)
+
+createSlider("Fly Speed", 20, 300, 50, function(val)
+    flySpeed = val
+end)
+
+UIS.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == Enum.KeyCode.F then
+        if flying then stopFly() else startFly() end
+    end
+end)
+StarterGui:SetCore("SendNotification", {Title = "HVK-9"; Text = "đã kích hoạt"; Duration = 5})
