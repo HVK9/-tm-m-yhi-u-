@@ -24,7 +24,8 @@ local MOBS_DB = {
     {Name = "hiếu liếm", Level = "Lọ Đế Chí Tôn", Pos = Vector3.new(0, 0, 0)},
     {Name = "huy gay", Level = "Gay Ko Đối Thủ", Pos = Vector3.new(0, 0, 0)},
     {Name = "hải xesa", Level = "Đại cao bằng", Pos = Vector3.new(0, 0, 0)},
-    {Name = "khôi bảy chỏ", Level = "gost đéo có wowcup", Pos = Vector3.new(0, 0, 0)},
+    {Name = "khôi bảy chỏ", Level = "goats đéo có wowcup", Pos = Vector3.new(0, 0, 0)},
+    {Name = "hùng king", Level = "goats of king", Pos = Vector3.new(0, 0, 0)},
 }
 
 -- --- HỆ THỐNG UI ---
