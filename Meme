@@ -30,7 +30,7 @@ local MOBS_DB = {
 
 -- --- HỆ THỐNG UI ---
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HVK-9"
+ScreenGui.Name = "địt mẹ mày huy"
 if pcall(function() ScreenGui.Parent = CoreGui end) then else ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 -- 1. Nút Mini Toggle
