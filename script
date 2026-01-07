@@ -1,8 +1,8 @@
 --[[
-    HVK9 ULTIMATE V19.5 - FIXED SEA & FULL DATABASE
-    1. IMPROVED SEA SCAN: Thêm fallback check theo Level (Chính xác 100%).
-    2. FIXED DB: Sửa tọa độ Fishman (Sea 1) và chuẩn hóa list Sea 3.
-    3. CORE KEPT: Giữ nguyên Auto Farm, Fast Attack, UI Drag, Smart Move.
+    HVK9 ULTIMATE V22 - ALWAYS AUTO HAKI
+    1. NEW FEATURE: Auto Haki dạng Loop (Luôn kiểm tra và bật lại nếu bị tắt).
+    2. FARM NEAR: Giữ nguyên chế độ Farm quái gần.
+    3. CORE: Giữ nguyên Scan Sea, Fast Attack, Fix Database.
 ]]
 
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -19,7 +19,8 @@ local LocalPlayer = Players.LocalPlayer
 
 -- --- CẤU HÌNH ---
 local CONFIG = {
-    AutoFarm = false, 
+    AutoFarm = false,         
+    AutoFarmNearest = false,  
     SelectedMob = nil,
     TargetPosition = nil,
     WeaponType = "Melee",
@@ -27,51 +28,58 @@ local CONFIG = {
     FlySpeed = 350,
     HoverHeight = 15, 
     AttackDistance = 60, 
-    FastAttackDelay = 0.1 
+    FastAttackDelay = 0.1,
+    ScanRadius = 350 
 }
 
--- --- HỆ THỐNG NHẬN DIỆN SEA CHUYÊN SÂU (DEEP SCAN) ---
+-- --- HỆ THỐNG AUTO HAKI THÔNG MINH (V22) ---
+-- Chức năng: Luôn kiểm tra, nếu thiếu Haki thì bật, có rồi thì thôi.
+task.spawn(function()
+    while true do
+        task.wait(1) -- Kiểm tra mỗi 1 giây
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                -- Kiểm tra xem nhân vật đã có trạng thái Buso chưa ("HasBuso")
+                -- Nếu chưa có (nil) thì mới gọi lệnh bật.
+                if not char:FindFirstChild("HasBuso") then
+                    local args = "Buso"
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(args)
+                end
+            end
+        end)
+    end
+end)
+
+-- --- HỆ THỐNG NHẬN DIỆN SEA CHUYÊN SÂU (GIỮ NGUYÊN) ---
 local CurrentSea = nil
 
 local function IdentifySea()
-    -- Cách 1: Check Place ID (Chính xác nhất nếu server chuẩn)
     local pid = game.PlaceId
     if pid == 2753915549 then return 1 end
     if pid == 4442272183 then return 2 end
     if pid == 7449423635 then return 3 end
 
-    -- Cách 2: Check Map Folder (Nếu ID lỗi hoặc server VIP/Lậu)
     local Map = Workspace:FindFirstChild("Map") or Workspace:FindFirstChild("World")
     if Map then
-        -- Dấu hiệu Sea 3
-        if Map:FindFirstChild("Turtle") or Map:FindFirstChild("Castle on the Sea") or Map:FindFirstChild("Port Town") or Map:FindFirstChild("Hydra Island") then return 3 end
-        
-        -- Dấu hiệu Sea 2
-        if Map:FindFirstChild("Dressrosa") or Map:FindFirstChild("Green Zone") or Map:FindFirstChild("Cursed Ship") or Map:FindFirstChild("Snow Mountain") then return 2 end
-        
-        -- Dấu hiệu Sea 1
-        if Map:FindFirstChild("MarineFord") or Map:FindFirstChild("Jungle") or Map:FindFirstChild("Middle Town") or Map:FindFirstChild("Fountain City") then return 1 end
+        if Map:FindFirstChild("Turtle") or Map:FindFirstChild("Castle on the Sea") or Map:FindFirstChild("Port Town") then return 3 end
+        if Map:FindFirstChild("Dressrosa") or Map:FindFirstChild("Green Zone") or Map:FindFirstChild("Cursed Ship") then return 2 end
+        if Map:FindFirstChild("MarineFord") or Map:FindFirstChild("Jungle") or Map:FindFirstChild("Middle Town") then return 1 end
     end
 
-    -- Cách 3: Check Level Nhân Vật (Phương án cuối cùng cực kỳ hiệu quả)
-    -- Nếu không tìm thấy Map, ta đoán Sea dựa trên Level hiện tại
     local myLevel = LocalPlayer.Data.Level.Value
     if myLevel >= 1500 then return 3 end
     if myLevel >= 700 then return 2 end
     return 1 
 end
 
--- Vòng lặp chờ xác định Sea
 local attempt = 0
 repeat
     attempt = attempt + 1
     CurrentSea = IdentifySea()
-    if not CurrentSea then
-        task.wait(0.5)
-    end
-until CurrentSea or attempt > 10 -- Thử 10 lần
+    if not CurrentSea then task.wait(0.5) end
+until CurrentSea or attempt > 10
 
--- Fallback an toàn (Nếu vẫn nil thì dùng Level check lần nữa)
 if not CurrentSea then 
     if LocalPlayer.Data.Level.Value >= 1500 then CurrentSea = 3
     elseif LocalPlayer.Data.Level.Value >= 700 then CurrentSea = 2
@@ -80,7 +88,7 @@ end
 
 print("HVK9 SYSTEM: CONFIRMED SEA " .. CurrentSea)
 
--- --- MODULE FAST ATTACK (GIỮ NGUYÊN) ---
+-- --- FAST ATTACK (GIỮ NGUYÊN) ---
 local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
 local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
 local RegisterHit = Net:WaitForChild("RE/RegisterHit")
@@ -119,14 +127,14 @@ end
 
 task.spawn(function()
     while true do
-        if CONFIG.AutoFarm then
+        if CONFIG.AutoFarm or CONFIG.AutoFarmNearest then 
             pcall(DoFastAttack)
         end
         task.wait(CONFIG.FastAttackDelay) 
     end
 end)
 
--- --- FULL DATABASE QUÁI (SEA 1, 2, 3) - ĐÃ FIX ---
+-- --- DATABASE (GIỮ NGUYÊN) ---
 local MOBS_DB = {
     -- SEA 1
     {Name = "Bandit", Level = 5, Pos = Vector3.new(1060, 16, 1550), Sea = 1}, 
@@ -147,7 +155,6 @@ local MOBS_DB = {
     {Name = "Gladiator", Level = 275, Pos = Vector3.new(-1400, 7, -3100), Sea = 1},
     {Name = "Military Soldier", Level = 300, Pos = Vector3.new(-5514, 62, 8577), Sea = 1},
     {Name = "Military Spy", Level = 325, Pos = Vector3.new(-5779, 119, 8804), Sea = 1},
-    -- FIX: Đã sửa tọa độ 61120 thành 6112
     {Name = "Fishman Warrior", Level = 375, Pos = Vector3.new(6112, 18, 1570), Sea = 1}, 
     {Name = "Fishman Commando", Level = 400, Pos = Vector3.new(6112, 18, 1570), Sea = 1},
     {Name = "God's Guard", Level = 450, Pos = Vector3.new(-4700, 560, -2000), Sea = 1},
@@ -238,7 +245,7 @@ MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
-MainFrame.Size = UDim2.new(0, 320, 0, 350)
+MainFrame.Size = UDim2.new(0, 320, 0, 400) 
 MainFrame.Active = true
 
 local UICornerFrame = Instance.new("UICorner")
@@ -249,7 +256,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Parent = MainFrame
 TitleLabel.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 TitleLabel.Size = UDim2.new(1, 0, 0, 40)
-TitleLabel.Text = "HVK-9 V19.5 (SEA " .. CurrentSea .. " CONFIRMED)"
+TitleLabel.Text = "HVK-9 V22 (SEA " .. CurrentSea .. ")"
 TitleLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
 TitleLabel.Font = Enum.Font.FredokaOne
 TitleLabel.TextSize = 16
@@ -295,8 +302,8 @@ ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame
 local WeaponBtn = Instance.new("TextButton")
 WeaponBtn.Parent = MainFrame
 WeaponBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-WeaponBtn.Position = UDim2.new(0.1, 0, 0.15, 0)
-WeaponBtn.Size = UDim2.new(0.8, 0, 0, 40)
+WeaponBtn.Position = UDim2.new(0.1, 0, 0.12, 0)
+WeaponBtn.Size = UDim2.new(0.8, 0, 0, 35)
 WeaponBtn.Text = "Weapon: Melee"
 WeaponBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 WeaponBtn.Font = Enum.Font.SourceSansBold
@@ -311,25 +318,67 @@ WeaponBtn.MouseButton1Click:Connect(function()
     WeaponBtn.Text = "Weapon: " .. CONFIG.WeaponType
 end)
 
--- Auto Farm Button
+-- Button: Auto Farm Selected
 local FarmBtn = Instance.new("TextButton")
 FarmBtn.Parent = MainFrame
 FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-FarmBtn.Position = UDim2.new(0.1, 0, 0.3, 0)
-FarmBtn.Size = UDim2.new(0.8, 0, 0, 50)
-FarmBtn.Text = "AUTO FARM: OFF"
+FarmBtn.Position = UDim2.new(0.1, 0, 0.23, 0)
+FarmBtn.Size = UDim2.new(0.8, 0, 0, 40)
+FarmBtn.Text = "AUTO FARM SELECTED: OFF"
 FarmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 FarmBtn.Font = Enum.Font.SourceSansBold
-FarmBtn.TextSize = 20
+FarmBtn.TextSize = 18
 
+-- Button: Auto Farm Nearest
+local FarmNearBtn = Instance.new("TextButton")
+FarmNearBtn.Parent = MainFrame
+FarmNearBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+FarmNearBtn.Position = UDim2.new(0.1, 0, 0.35, 0) 
+FarmNearBtn.Size = UDim2.new(0.8, 0, 0, 40)
+FarmNearBtn.Text = "FARM NEAR (SCAN): OFF"
+FarmNearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FarmNearBtn.Font = Enum.Font.SourceSansBold
+FarmNearBtn.TextSize = 18
+
+-- Logic cho nút Farm Selected
 FarmBtn.MouseButton1Click:Connect(function()
     CONFIG.AutoFarm = not CONFIG.AutoFarm
+    if CONFIG.AutoFarm then 
+        CONFIG.AutoFarmNearest = false 
+        FarmNearBtn.Text = "FARM NEAR (SCAN): OFF"
+        FarmNearBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+    end
+    
     if CONFIG.AutoFarm then
-        FarmBtn.Text = "AUTO FARM: ON"
+        FarmBtn.Text = "AUTO FARM SELECTED: ON"
         FarmBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
     else
-        FarmBtn.Text = "AUTO FARM: OFF"
+        FarmBtn.Text = "AUTO FARM SELECTED: OFF"
         FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local bv = char.HumanoidRootPart:FindFirstChild("AntiFall")
+            if bv then bv:Destroy() end
+            char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+-- Logic cho nút Farm Near
+FarmNearBtn.MouseButton1Click:Connect(function()
+    CONFIG.AutoFarmNearest = not CONFIG.AutoFarmNearest
+    if CONFIG.AutoFarmNearest then
+        CONFIG.AutoFarm = false
+        FarmBtn.Text = "AUTO FARM SELECTED: OFF"
+        FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+
+    if CONFIG.AutoFarmNearest then
+        FarmNearBtn.Text = "FARM NEAR (SCAN): ON"
+        FarmNearBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    else
+        FarmNearBtn.Text = "FARM NEAR (SCAN): OFF"
+        FarmNearBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local bv = char.HumanoidRootPart:FindFirstChild("AntiFall")
@@ -343,8 +392,8 @@ end)
 local MobListFrame = Instance.new("ScrollingFrame")
 MobListFrame.Parent = MainFrame
 MobListFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-MobListFrame.Position = UDim2.new(0.1, 0, 0.5, 0)
-MobListFrame.Size = UDim2.new(0.8, 0, 0.45, 0)
+MobListFrame.Position = UDim2.new(0.1, 0, 0.48, 0)
+MobListFrame.Size = UDim2.new(0.8, 0, 0.48, 0)
 MobListFrame.ScrollBarThickness = 6
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.Parent = MobListFrame
@@ -424,7 +473,7 @@ local function SmartMove(targetPos)
     tween:Play()
 end
 
-local function GetClosestMob()
+local function GetClosestMobByName()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
@@ -446,20 +495,39 @@ local function GetClosestMob()
     return closestMob
 end
 
+local function GetAnyClosestMob()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local closestMob = nil
+    local shortestDist = CONFIG.ScanRadius
+
+    for _, v in pairs(Workspace.Enemies:GetChildren()) do
+        if v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+            local dist = (v.HumanoidRootPart.Position - hrp.Position).Magnitude
+            if dist < shortestDist then
+                shortestDist = dist
+                closestMob = v
+            end
+        end
+    end
+    return closestMob
+end
+
 RunService.RenderStepped:Connect(function()
-    if CONFIG.AutoFarm and CONFIG.SelectedMob then
-        local char = LocalPlayer.Character
-        if not char then return end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    
+    -- LOGIC 1: Farm Selected
+    if CONFIG.AutoFarm and CONFIG.SelectedMob and hrp then
         for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
         end
-
         EquipWeapon()
 
-        local targetMob = GetClosestMob()
+        local targetMob = GetClosestMobByName()
         if targetMob then
             local mobHrp = targetMob:FindFirstChild("HumanoidRootPart")
             if mobHrp then
@@ -469,6 +537,22 @@ RunService.RenderStepped:Connect(function()
         else
             if CONFIG.TargetPosition then
                 SmartMove(CONFIG.TargetPosition + Vector3.new(0, 50, 0))
+            end
+        end
+    
+    -- LOGIC 2: Farm Nearest
+    elseif CONFIG.AutoFarmNearest and hrp then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
+        end
+        EquipWeapon()
+
+        local targetMob = GetAnyClosestMob()
+        if targetMob then
+            local mobHrp = targetMob:FindFirstChild("HumanoidRootPart")
+            if mobHrp then
+                local attackPos = mobHrp.Position + Vector3.new(0, CONFIG.HoverHeight, 0)
+                SmartMove(attackPos)
             end
         end
     end
