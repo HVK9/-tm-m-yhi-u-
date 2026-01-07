@@ -1,399 +1,362 @@
 --[[
-    HVK9 ULTIMATE V14 - FAST ATTACK REAL & SYNC AUTO FARM
-    1. Fast Attack được làm lại: Dùng cả RegisterAttack và RegisterHit (Gây dame thật).
-    2. Cơ chế đồng bộ: Bật Auto Farm là Fast Attack tự chạy. Tắt là tự ngưng.
-    3. Dữ liệu quái (Data) giữ nguyên format cũ của bạn.
-    4. UI Kéo thả, Ẩn hiện đầy đủ.
+    HVK9 AUTOMATION V26 - GOD MODE
+    1. UI: Màn hình tối, HUD đơn giản (Level/Money).
+    2. AUTO START: Tự chạy ngay khi Execute.
+    3. AUTO STATS: Tự cộng Melee & Defense.
+    4. PERSISTENCE: Tự nạp lại khi qua Sea (Sea Hop).
 ]]
+
+-- --- CƠ CHẾ TỰ NẠP LẠI KHI QUA SEA (Auto Execute Logic) ---
+if (not game:IsLoaded()) then game.Loaded:Wait() end
+pcall(function()
+    if queue_on_teleport then
+        queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/USER/REPO/main/script.lua"))()') 
+        -- Lưu ý: Dòng trên là ví dụ, tốt nhất bạn nên để file này vào thư mục autoexec
+    end
+end)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 
--- --- CẤU HÌNH ---
+-- --- CẤU HÌNH TỰ ĐỘNG (KHÔNG CẦN CHỈNH) ---
 local CONFIG = {
-    AutoFarm = false, -- Nút này bật thì Fast Attack sẽ chạy theo
-    SelectedMob = nil,
-    TargetPosition = nil,
-    WeaponType = "Melee",
+    AutoFarmLevel = true,      -- MẶC ĐỊNH BẬT
+    AutoSeaHop = true,         -- MẶC ĐỊNH BẬT
+    AutoStats = true,          -- MẶC ĐỊNH BẬT
+    WeaponType = "Melee",      -- Dùng Melee để farm
     
-    FlySpeed = 300,
-    HoverHeight = 15,
+    FlySpeed = 320,            
+    HoverHeight = 15,          
+    FastAttackDelay = 0.1,
+    ScanRadius = 400
 }
 
--- --- DATA TỌA ĐỘ (GIỮ NGUYÊN FORMAT CŨ) ---
-local MOBS_DB = {
-    -- ================= SEA 1 =================
-    -- Starter Island (0 - 10)
-    {Name = "Bandit", Level = 5, Pos = Vector3.new(1060, 16, 1550)}, 
-    -- Jungle (15 - 30)
-    {Name = "Monkey", Level = 14, Pos = Vector3.new(-1600, 36, 150)},
-    {Name = "Gorilla", Level = 20, Pos = Vector3.new(-1240, 6, -500)},
-    {Name = "Gorilla King", Level = 25, Pos = Vector3.new(-1130, 6, -450)}, -- Boss
-    -- Pirate Village (30 - 60)
-    {Name = "Pirate", Level = 35, Pos = Vector3.new(-1130, 4, 3850)},
-    {Name = "Brute", Level = 45, Pos = Vector3.new(-1300, 4, 3850)},
-    {Name = "Bobby", Level = 55, Pos = Vector3.new(-1130, 4, 3850)}, -- Boss
-    -- Desert (60 - 90)
-    {Name = "Desert Bandit", Level = 60, Pos = Vector3.new(900, 6, 4380)},
-    {Name = "Desert Officer", Level = 70, Pos = Vector3.new(1560, 6, 4380)},
-    -- Frozen Village (90 - 120)
-    {Name = "Snow Bandit", Level = 90, Pos = Vector3.new(1380, 87, -1300)},
-    {Name = "Snowman", Level = 100, Pos = Vector3.new(1222, 138, -1489)},
-    {Name = "Yeti", Level = 105, Pos = Vector3.new(1222, 138, -1489)}, -- Boss
-    -- Marine Fortress (120 - 150)
-    {Name = "Chief Petty Officer", Level = 120, Pos = Vector3.new(-4996, 84, 4154)},
-    {Name = "Vice Admiral", Level = 130, Pos = Vector3.new(-5080, 154, 4428)}, -- Boss
-    -- Skylands (150 - 250) - Tầng 1
-    {Name = "Sky Bandit", Level = 150, Pos = Vector3.new(-4900, 296, -2900)},
-    {Name = "Dark Master", Level = 175, Pos = Vector3.new(-5228, 429, -2279)},
-    -- Prison (190 - 250)
-    {Name = "Prisoner", Level = 190, Pos = Vector3.new(5300, 88, 472)},
-    {Name = "Dangerous Prisoner", Level = 210, Pos = Vector3.new(5300, 88, 472)},
-    {Name = "Warden", Level = 220, Pos = Vector3.new(5284, 94, 922)}, -- Boss
-    {Name = "Chief Warden", Level = 230, Pos = Vector3.new(5284, 94, 922)}, -- Boss
-    {Name = "Swan", Level = 240, Pos = Vector3.new(5284, 94, 922)}, -- Boss
-    -- Colosseum (225 - 300)
-    {Name = "Toga Warrior", Level = 225, Pos = Vector3.new(-1600, 7, -2800)},
-    {Name = "Gladiator", Level = 275, Pos = Vector3.new(-1400, 7, -3100)},
-    -- Magma Village (300 - 375)
-    {Name = "Military Soldier", Level = 300, Pos = Vector3.new(-5514, 62, 8577)},
-    {Name = "Military Spy", Level = 325, Pos = Vector3.new(-5779, 119, 8804)},
-    {Name = "Magma Admiral", Level = 350, Pos = Vector3.new(-5600, 7, 8500)}, -- Boss
-    -- Underwater City (375 - 450)
-    {Name = "Fishman Warrior", Level = 375, Pos = Vector3.new(61120, 18, 1570)}, 
-    {Name = "Fishman Commando", Level = 400, Pos = Vector3.new(61120, 18, 1570)},
-    {Name = "Fishman Lord", Level = 425, Pos = Vector3.new(-5685, 17, 8648)}, -- Boss
-    -- Skylands (450 - 575) - Tầng trên cao (Upper Skylands)
-    {Name = "God's Guard", Level = 450, Pos = Vector3.new(-4700, 560, -2000)},
-    {Name = "Shanda", Level = 475, Pos = Vector3.new(-7600, 5550, -1400)},
-    {Name = "Wysper", Level = 500, Pos = Vector3.new(-7900, 5550, -1600)}, -- Boss
-    {Name = "Thunder God", Level = 575, Pos = Vector3.new(-7700, 5600, -2300)}, -- Boss Enel
-    -- Fountain City (625 - 700)
-    {Name = "Galley Pirate", Level = 625, Pos = Vector3.new(5500, 40, 4000)},
-    {Name = "Cyborg", Level = 675, Pos = Vector3.new(6000, 40, 4200)}, -- Boss
+-- Biến theo dõi tiền
+local StartMoney = LocalPlayer.Data.Beli.Value
+local MoneyEarned = 0
 
-    -- ================= SEA 2 =================
-    -- Kingdom of Rose (700 - 850)
-    {Name = "Raider", Level = 700, Pos = Vector3.new(-480, 72, 1860)},
-    {Name = "Mercenary", Level = 725, Pos = Vector3.new(-970, 100, 1600)},
-    {Name = "Factory Staff", Level = 775, Pos = Vector3.new(-300, 75, 500)},
-    {Name = "Jeremy", Level = 850, Pos = Vector3.new(2300, 450, 700)}, -- Boss
-    -- Green Zone (875 - 925)
-    {Name = "Marine Lieutenant", Level = 875, Pos = Vector3.new(-2000, 70, -2600)},
-    {Name = "Fajita", Level = 925, Pos = Vector3.new(-2100, 70, -2800)}, -- Boss
-    -- Graveyard (950 - 975)
-    {Name = "Zombie", Level = 950, Pos = Vector3.new(-5500, 10, -50)},
-    {Name = "Vampire", Level = 975, Pos = Vector3.new(-6000, 10, -50)},
-    -- Snow Mountain (1000 - 1050)
-    {Name = "Snow Trooper", Level = 1000, Pos = Vector3.new(700, 400, -1300)},
-    -- Hot and Cold (1100 - 1200)
-    {Name = "Lab Subordinate", Level = 1100, Pos = Vector3.new(-5800, 15, -8300)},
-    {Name = "Magma Ninja", Level = 1175, Pos = Vector3.new(-5400, 15, -8300)},
-    -- Cursed Ship (1250 - 1325)
-    {Name = "Ship Deckhand", Level = 1250, Pos = Vector3.new(920, 125, 32800)},
-    -- Ice Castle (1350 - 1400)
-    {Name = "Arctic Warrior", Level = 1350, Pos = Vector3.new(6000, 28, -6000)},
-    {Name = "Awakened Ice Admiral", Level = 1400, Pos = Vector3.new(6400, 30, -6200)}, -- Boss
-    -- Forgotten Island (1425 - 1475)
-    {Name = "Sea Soldier", Level = 1425, Pos = Vector3.new(-3000, 240, -10000)},
-    {Name = "Tide Keeper", Level = 1475, Pos = Vector3.new(-3800, 240, -10800)}, -- Boss
+-- --- ANTI AFK ---
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
 
-    -- ================= SEA 3 =================
-    -- Port Town (1500 - 1575)
-    {Name = "Pirate Millionaire", Level = 1500, Pos = Vector3.new(-18, 110, 5806)},
-    -- Hydra Island (1575 - 1675)
-    {Name = "Dragon Crew Warrior", Level = 1575, Pos = Vector3.new(-60, 170, 6179)},
-    {Name = "Island Empress", Level = 1675, Pos = Vector3.new(-1194, 103, 6916)}, -- Boss
-    -- Great Tree (1700 - 1750)
-    {Name = "Marine Commodore", Level = 1700, Pos = Vector3.new(2450, 70, -7350)},
-    {Name = "Kilo Admiral", Level = 1750, Pos = Vector3.new(2904, 509, -7368)}, -- Boss
-    -- Floating Turtle (1775 - 1975)
-    {Name = "Fishman Raider", Level = 1775, Pos = Vector3.new(-15350, 330, 240)},
-    {Name = "Giant Islander", Level = 1650, Pos = Vector3.new(4900, 1000, 700)},
-    {Name = "Forest Pirate", Level = 1825, Pos = Vector3.new(-13300, 330, -350)},
-    {Name = "Jungle Pirate", Level = 1900, Pos = Vector3.new(-12100, 330, -1700)},
-    {Name = "Beautiful Pirate", Level = 1975, Pos = Vector3.new(-12500, 335, -7500)},
-    -- Haunted Castle (1975 - 2075)
-    {Name = "Reborn Skeleton", Level = 1975, Pos = Vector3.new(-8800, 140, 5900)},
-    {Name = "Demonic Soul", Level = 2025, Pos = Vector3.new(-9400, 170, 6100)},
-    -- Sea of Treats (2075 - 2275)
-    {Name = "Peanut Scout", Level = 2075, Pos = Vector3.new(-2000, 70, -12500)},
-    {Name = "Ice Cream Chef", Level = 2125, Pos = Vector3.new(-1000, 70, -12500)},
-    {Name = "Cookie Crafter", Level = 2200, Pos = Vector3.new(-2000, 70, -11500)},
-    {Name = "Head Baker", Level = 2275, Pos = Vector3.new(-2000, 70, -11800)},
-    -- Chocolate Island (2300 - 2375)
-    {Name = "Cocoa Warrior", Level = 2300, Pos = Vector3.new(200, 50, -12200)},
-    {Name = "Chocolate Bar Battlers", Level = 2325, Pos = Vector3.new(513, 24, -12394)},
-    {Name = "Sweet Thiefs", Level = 2350, Pos = Vector3.new(69, 77, -12643)},
-    {Name = "Candy Rebel", Level = 2375, Pos = Vector3.new(800, 50, -12500)},
-    -- Candy Island (2400 - 2425)
-    {Name = "Candy Pirate", Level = 2400, Pos = Vector3.new(-1800, 40, -14500)},
-    -- Tiki Outpost (2450 - 2550)
-    {Name = "Isle Outlaw", Level = 2450, Pos = Vector3.new(-16250, 21, -198)},
-    {Name = "Sun Kissed Warrior", Level = 2500, Pos = Vector3.new(-16223, 137, 1027)},
-
-    -- Boss đặc biệt
-    {Name = "hiếu liếm", Level = "Lọ Đế Chí Tôn", Pos = Vector3.new(0, 0, 0)},
-    {Name = "huy gay", Level = "Gay Ko Đối Thủ", Pos = Vector3.new(0, 0, 0)},
-    {Name = "hải xesa", Level = "Đại cao bằng", Pos = Vector3.new(0, 0, 0)},
-    {Name = "khôi bảy chỏ", Level = "gost đéo có wowcup", Pos = Vector3.new(0, 0, 0)},
-}
-
--- --- HỆ THỐNG UI ---
+-- --- UI DARK MODE & HUD ---
+if CoreGui:FindFirstChild("HVK9_Overlay") then CoreGui.HVK9_Overlay:Destroy() end
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HVK-9"
-if pcall(function() ScreenGui.Parent = CoreGui end) then else ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+ScreenGui.Name = "HVK9_Overlay"
+ScreenGui.Parent = CoreGui
+ScreenGui.IgnoreGuiInset = true -- Che toàn màn hình kể cả thanh topbar
 
--- 1. Nút Mini Toggle
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Name = "ToggleBtn"
-ToggleBtn.Parent = ScreenGui
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-ToggleBtn.Position = UDim2.new(0.02, 0, 0.2, 0)
-ToggleBtn.Size = UDim2.new(0, 40, 0, 40)
-ToggleBtn.Text = "H-9"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.Font = Enum.Font.SourceSansBold
-ToggleBtn.TextSize = 18
-local UICornerBtn = Instance.new("UICorner")
-UICornerBtn.CornerRadius = UDim.new(0, 8)
-UICornerBtn.Parent = ToggleBtn
+-- 1. Lớp phủ tối màn hình
+local DarkOverlay = Instance.new("Frame")
+DarkOverlay.Size = UDim2.new(1, 0, 1, 0)
+DarkOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
+DarkOverlay.BackgroundTransparency = 0.3 -- Độ tối (0.3 là khá tối)
+DarkOverlay.Parent = ScreenGui
+DarkOverlay.Active = false -- Để vẫn click được vào game nếu cần
 
--- 2. Bảng Menu Chính
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
-MainFrame.Size = UDim2.new(0, 320, 0, 350)
-MainFrame.Active = true
+-- 2. Logo HVK9 (Giữa trên)
+local Logo = Instance.new("TextLabel")
+Logo.Size = UDim2.new(0, 200, 0, 50)
+Logo.Position = UDim2.new(0.5, -100, 0.05, 0) -- Canh giữa
+Logo.BackgroundTransparency = 1
+Logo.Text = "HVK-9"
+Logo.TextColor3 = Color3.fromRGB(0, 255, 100) -- Màu xanh neon
+Logo.Font = Enum.Font.FredokaOne
+Logo.TextSize = 40
+Logo.Parent = ScreenGui
 
-local UICornerFrame = Instance.new("UICorner")
-UICornerFrame.CornerRadius = UDim.new(0, 10)
-UICornerFrame.Parent = MainFrame
-
--- Tiêu đề (Draggable)
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Parent = MainFrame
-TitleLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-TitleLabel.Size = UDim2.new(1, 0, 0, 40)
-TitleLabel.Text = "HVK-9"
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Font = Enum.Font.FredokaOne
-TitleLabel.TextSize = 20
-local UICornerTitle = Instance.new("UICorner")
-UICornerTitle.CornerRadius = UDim.new(0, 10)
-UICornerTitle.Parent = TitleLabel
-
-local dragging, dragInput, dragStart, startPos
-local function update(input)
-    local delta = input.Position - dragStart
-    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-TitleLabel.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
-    end
-end)
-TitleLabel.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then update(input) end end)
-
-ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
-
--- 3. Nút Chức Năng
-local WeaponBtn = Instance.new("TextButton")
-WeaponBtn.Parent = MainFrame
-WeaponBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-WeaponBtn.Position = UDim2.new(0.1, 0, 0.15, 0)
-WeaponBtn.Size = UDim2.new(0.8, 0, 0, 40)
-WeaponBtn.Text = "Vũ Khí: Melee"
-WeaponBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-WeaponBtn.Font = Enum.Font.SourceSansBold
-WeaponBtn.TextSize = 18
-
-local weapons = {"Melee", "Blox Fruit", "Sword", "Gun"}
-local weaponIndex = 1
-WeaponBtn.MouseButton1Click:Connect(function()
-    weaponIndex = weaponIndex + 1
-    if weaponIndex > #weapons then weaponIndex = 1 end
-    CONFIG.WeaponType = weapons[weaponIndex]
-    WeaponBtn.Text = "Vũ Khí: " .. CONFIG.WeaponType
-end)
-
-local FarmBtn = Instance.new("TextButton")
-FarmBtn.Parent = MainFrame
-FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-FarmBtn.Position = UDim2.new(0.1, 0, 0.3, 0)
-FarmBtn.Size = UDim2.new(0.8, 0, 0, 50)
-FarmBtn.Text = "AUTO FARM: OFF"
-FarmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-FarmBtn.Font = Enum.Font.SourceSansBold
-FarmBtn.TextSize = 20
-FarmBtn.MouseButton1Click:Connect(function()
-    CONFIG.AutoFarm = not CONFIG.AutoFarm
-    if CONFIG.AutoFarm then
-        FarmBtn.Text = "AUTO FARM: ON"
-        FarmBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    else
-        FarmBtn.Text = "AUTO FARM: OFF"
-        FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    end
-end)
-
-local MobListFrame = Instance.new("ScrollingFrame")
-MobListFrame.Parent = MainFrame
-MobListFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-MobListFrame.Position = UDim2.new(0.1, 0, 0.5, 0)
-MobListFrame.Size = UDim2.new(0.8, 0, 0.45, 0)
-MobListFrame.CanvasSize = UDim2.new(0, 0, 0, #MOBS_DB * 35)
-MobListFrame.ScrollBarThickness = 6
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Parent = MobListFrame
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-for i, mob in ipairs(MOBS_DB) do
-    local btn = Instance.new("TextButton")
-    btn.Parent = MobListFrame
-    btn.Size = UDim2.new(1, 0, 0, 35)
-    btn.Text = mob.Name .. " (Lv." .. mob.Level .. ")"
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
-    btn.MouseButton1Click:Connect(function()
-        CONFIG.SelectedMob = mob.Name
-        CONFIG.TargetPosition = mob.Pos
-        for _, b in pairs(MobListFrame:GetChildren()) do if b:IsA("TextButton") then b.BackgroundColor3 = Color3.fromRGB(50, 50, 50) end end
-        btn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-    end)
-end
-
--- --- LOGIC HỆ THỐNG (CORE) ---
-
--- 1. FAST ATTACK MODULE (ĐÃ TÍCH HỢP VÀO AUTO FARM)
+-- Hiệu ứng nhấp nháy cho Logo
 task.spawn(function()
-    local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
-    local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
-    local RegisterHit = Net:WaitForChild("RE/RegisterHit")
-    
     while true do
-        task.wait(0.05) -- Tốc độ đánh siêu nhanh (có thể chỉnh xuống 0.01 nếu máy mạnh)
-        
-        -- Chỉ chạy khi AUTO FARM đang BẬT
-        if CONFIG.AutoFarm then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local hrp = char.HumanoidRootPart
-                
-                -- 1.1. Gửi lệnh chém (Animation)
-                pcall(function()
-                    RegisterAttack:FireServer(0)
-                end)
-                
-                -- 1.2. Gửi lệnh gây dame (Hit) cho quái xung quanh
-                for _, v in pairs(Workspace.Enemies:GetChildren()) do
-                    if v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                        -- Nếu quái ở gần (trong tầm đánh 60)
-                        if (v.HumanoidRootPart.Position - hrp.Position).Magnitude < 60 then
-                            pcall(function()
-                                RegisterHit:FireServer(v.HumanoidRootPart, {v})
-                            end)
-                        end
-                    end
+        TweenService:Create(Logo, TweenInfo.new(1), {TextTransparency = 0.5}):Play()
+        task.wait(1)
+        TweenService:Create(Logo, TweenInfo.new(1), {TextTransparency = 0}):Play()
+        task.wait(1)
+    end
+end)
+
+-- 3. HUD Thông tin (Bên phải)
+local StatsFrame = Instance.new("Frame")
+StatsFrame.Size = UDim2.new(0, 200, 0, 100)
+StatsFrame.Position = UDim2.new(1, -220, 0.5, -50) -- Bên phải giữa
+StatsFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+StatsFrame.BackgroundTransparency = 0.5
+StatsFrame.Parent = ScreenGui
+local UICorner = Instance.new("UICorner", StatsFrame); UICorner.CornerRadius = UDim.new(0, 10)
+
+local LevelLabel = Instance.new("TextLabel")
+LevelLabel.Size = UDim2.new(1, 0, 0.5, 0)
+LevelLabel.Position = UDim2.new(0, 0, 0, 0)
+LevelLabel.BackgroundTransparency = 1
+LevelLabel.Text = "Level: " .. LocalPlayer.Data.Level.Value
+LevelLabel.TextColor3 = Color3.new(1, 1, 1)
+LevelLabel.Font = Enum.Font.SourceSansBold
+LevelLabel.TextSize = 24
+LevelLabel.Parent = StatsFrame
+
+local MoneyLabel = Instance.new("TextLabel")
+MoneyLabel.Size = UDim2.new(1, 0, 0.5, 0)
+MoneyLabel.Position = UDim2.new(0, 0, 0.5, 0)
+MoneyLabel.BackgroundTransparency = 1
+MoneyLabel.Text = "Earned: +$0"
+MoneyLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Màu vàng
+MoneyLabel.Font = Enum.Font.SourceSansBold
+MoneyLabel.TextSize = 24
+MoneyLabel.Parent = StatsFrame
+
+-- Loop cập nhật HUD
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if LocalPlayer and LocalPlayer:FindFirstChild("Data") then
+            LevelLabel.Text = "Level: " .. LocalPlayer.Data.Level.Value
+            local currentMoney = LocalPlayer.Data.Beli.Value
+            MoneyEarned = currentMoney - StartMoney
+            MoneyLabel.Text = "Earned: +$" .. MoneyEarned
+        end
+    end
+end)
+
+-- --- AUTO STATS (CỘNG ĐIỂM) ---
+-- Cộng Melee và Defense
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if CONFIG.AutoStats then
+            pcall(function()
+                local points = LocalPlayer.Data.Points.Value
+                if points > 0 then
+                    -- Cộng vào Melee (Dùng remote AddPoint)
+                    local args1 = { "AddPoint", "Melee", 1 }
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(unpack(args1))
+                    
+                    -- Cộng vào Defense
+                    local args2 = { "AddPoint", "Defense", 1 }
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(unpack(args2))
+                end
+            end)
+        end
+    end
+end)
+
+-- --- AUTO HAKI ---
+task.spawn(function()
+    while true do
+        task.wait(2)
+        pcall(function()
+            if LocalPlayer.Character and not LocalPlayer.Character:FindFirstChild("HasBuso") then
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Buso")
+            end
+        end)
+    end
+end)
+
+-- --- HỆ THỐNG NHẬN DIỆN SEA ---
+local CurrentSea = 1
+local PlaceId = game.PlaceId
+if PlaceId == 2753915549 then CurrentSea = 1
+elseif PlaceId == 4442272183 then CurrentSea = 2
+elseif PlaceId == 7449423635 then CurrentSea = 3
+end
+
+-- --- DATABASE NHIỆM VỤ (GIỮ NGUYÊN) ---
+local DB = {
+    Sea1 = {
+        {Req = 0, Name = "Bandit", QName = "BanditQuest1", QId = 1, NpcPos = Vector3.new(1060, 16, 1547), MobPos = Vector3.new(1150, 16, 1600)},
+        {Req = 10, Name = "Monkey", QName = "JungleQuest", QId = 1, NpcPos = Vector3.new(-1598, 36, 153), MobPos = Vector3.new(-1400, 30, 50)},
+        {Req = 15, Name = "Gorilla", QName = "JungleQuest", QId = 2, NpcPos = Vector3.new(-1598, 36, 153), MobPos = Vector3.new(-1200, 10, -500)},
+        {Req = 30, Name = "Pirate", QName = "BuggyQuest1", QId = 1, NpcPos = Vector3.new(-1140, 4, 3827), MobPos = Vector3.new(-1200, 10, 3900)},
+        {Req = 60, Name = "Desert Bandit", QName = "DesertQuest", QId = 1, NpcPos = Vector3.new(897, 6, 4387), MobPos = Vector3.new(950, 10, 4450)},
+        {Req = 90, Name = "Snow Bandit", QName = "SnowQuest", QId = 1, NpcPos = Vector3.new(1386, 87, -1296), MobPos = Vector3.new(1350, 90, -1350)},
+        {Req = 120, Name = "Chief Petty Officer", QName = "MarineQuest2", QId = 1, NpcPos = Vector3.new(-5039, 27, 4323), MobPos = Vector3.new(-4900, 30, 4200)},
+        {Req = 150, Name = "Sky Bandit", QName = "SkyQuest", QId = 1, NpcPos = Vector3.new(-4842, 717, -2622), MobPos = Vector3.new(-4950, 280, -2900)},
+        {Req = 190, Name = "Prisoner", QName = "PrisonerQuest", QId = 1, NpcPos = Vector3.new(5306, 1, 477), MobPos = Vector3.new(5100, 5, 500)},
+        {Req = 225, Name = "Toga Warrior", QName = "ColosseumQuest", QId = 1, NpcPos = Vector3.new(-1575, 7, -2984), MobPos = Vector3.new(-1400, 10, -2800)},
+        {Req = 300, Name = "Military Soldier", QName = "MagmaQuest", QId = 1, NpcPos = Vector3.new(-5314, 12, 8515), MobPos = Vector3.new(-5400, 20, 8600)},
+        {Req = 375, Name = "Fishman Warrior", QName = "FishmanQuest", QId = 1, NpcPos = Vector3.new(6112, 18, 1569), MobPos = Vector3.new(6000, 50, 1400)},
+        {Req = 450, Name = "God's Guard", QName = "SkyQuest", QId = 1, NpcPos = Vector3.new(-4842, 717, -2622), MobPos = Vector3.new(-4700, 550, -2000)},
+        {Req = 525, Name = "Royal Squad", QName = "SkyQuest", QId = 2, NpcPos = Vector3.new(-7906, 5541, -1412), MobPos = Vector3.new(-7800, 5600, -1450)},
+        {Req = 625, Name = "Galley Pirate", QName = "FountainQuest", QId = 1, NpcPos = Vector3.new(5259, 38, 4050), MobPos = Vector3.new(5600, 50, 4000)},
+    },
+    Sea2 = {
+        {Req = 700, Name = "Raider", QName = "Area1Quest", QId = 1, NpcPos = Vector3.new(-429, 72, 1836), MobPos = Vector3.new(-480, 72, 1860)},
+        {Req = 775, Name = "Swan Pirate", QName = "Area1Quest", QId = 2, NpcPos = Vector3.new(-429, 72, 1836), MobPos = Vector3.new(870, 120, 1200)},
+        {Req = 875, Name = "Marine Lieutenant", QName = "MarineQuest3", QId = 1, NpcPos = Vector3.new(-2440, 72, -2788), MobPos = Vector3.new(-2000, 70, -2600)},
+        {Req = 950, Name = "Zombie", QName = "ZombieQuest", QId = 1, NpcPos = Vector3.new(-5492, 48, -795), MobPos = Vector3.new(-5500, 10, -50)},
+        {Req = 1000, Name = "Snow Trooper", QName = "SnowQuest", QId = 1, NpcPos = Vector3.new(609, 401, -1491), MobPos = Vector3.new(700, 400, -1300)},
+        {Req = 1100, Name = "Lab Subordinate", QName = "IceSideQuest", QId = 1, NpcPos = Vector3.new(-6064, 15, -8352), MobPos = Vector3.new(-5800, 15, -8300)},
+        {Req = 1175, Name = "Magma Ninja", QName = "FireSideQuest", QId = 1, NpcPos = Vector3.new(-5428, 15, -8515), MobPos = Vector3.new(-5400, 15, -8300)},
+        {Req = 1250, Name = "Ship Deckhand", QName = "ShipQuest1", QId = 1, NpcPos = Vector3.new(1038, 125, 32913), MobPos = Vector3.new(920, 125, 32800)},
+        {Req = 1350, Name = "Arctic Warrior", QName = "FrostQuest", QId = 1, NpcPos = Vector3.new(5667, 28, -6486), MobPos = Vector3.new(6000, 28, -6000)},
+        {Req = 1425, Name = "Sea Soldier", QName = "ForgottenQuest", QId = 1, NpcPos = Vector3.new(-3054, 235, -10142), MobPos = Vector3.new(-3000, 240, -10000)},
+        {Req = 1450, Name = "Water Fighter", QName = "ForgottenQuest", QId = 2, NpcPos = Vector3.new(-3054, 235, -10142), MobPos = Vector3.new(-3400, 240, -10500)},
+    },
+    Sea3 = {
+        {Req = 1500, Name = "Pirate Millionaire", QName = "PiratePortQuest", QId = 1, NpcPos = Vector3.new(-290, 44, 5584), MobPos = Vector3.new(-300, 50, 5500)},
+        {Req = 1575, Name = "Dragon Crew Warrior", QName = "AmazonQuest", QId = 1, NpcPos = Vector3.new(5832, 51, -1106), MobPos = Vector3.new(6300, 50, -1000)},
+        {Req = 1700, Name = "Marine Commodore", QName = "MarineTreeIsland", QId = 1, NpcPos = Vector3.new(2181, 29, -6741), MobPos = Vector3.new(2450, 70, -7350)},
+        {Req = 1775, Name = "Fishman Raider", QName = "DeepForestIsland3", QId = 1, NpcPos = Vector3.new(-10581, 332, -8761), MobPos = Vector3.new(-10400, 330, -8400)},
+        {Req = 1800, Name = "Fishman Captain", QName = "DeepForestIsland3", QId = 2, NpcPos = Vector3.new(-10581, 332, -8761), MobPos = Vector3.new(-10800, 330, -8600)},
+        {Req = 1975, Name = "Reborn Skeleton", QName = "HauntedQuest1", QId = 1, NpcPos = Vector3.new(-9482, 142, 5567), MobPos = Vector3.new(-8800, 140, 5900)},
+        {Req = 2075, Name = "Peanut Scout", QName = "NutsIslandQuest", QId = 1, NpcPos = Vector3.new(-2104, 38, -10192), MobPos = Vector3.new(-2000, 70, -12500)},
+        {Req = 2200, Name = "Cookie Crafter", QName = "IceCreamIslandQuest", QId = 1, NpcPos = Vector3.new(-818, 66, -16117), MobPos = Vector3.new(-2000, 70, -11500)},
+        {Req = 2300, Name = "Cocoa Warrior", QName = "ChocQuest1", QId = 1, NpcPos = Vector3.new(231, 23, -12194), MobPos = Vector3.new(200, 50, -12200)},
+        {Req = 2400, Name = "Candy Pirate", QName = "CandyQuest1", QId = 1, NpcPos = Vector3.new(-1148, 13, -14445), MobPos = Vector3.new(-1800, 40, -14500)},
+        {Req = 2575, Name = "Shark Hunter", QName = "SharkHunterQuest", QId = 1, NpcPos = Vector3.new(-16500, 20, 2000), MobPos = Vector3.new(-17000, 20, 2000)},
+        {Req = 2725, Name = "Isle Champion", QName = "TikiQuest2", QId = 1, NpcPos = Vector3.new(-16200, 20, 1000), MobPos = Vector3.new(-16400, 137, 1100)},
+    }
+}
+
+-- --- HÀM LOGIC FARM ---
+local function EquipWeapon()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hum = char:FindFirstChild("Humanoid")
+        local backpack = LocalPlayer.Backpack
+        local current = char:FindFirstChildOfClass("Tool")
+        if not current or current.ToolTip ~= CONFIG.WeaponType then
+            for _, tool in pairs(backpack:GetChildren()) do
+                if tool:IsA("Tool") and tool.ToolTip == CONFIG.WeaponType then
+                    hum:EquipTool(tool)
+                    break
                 end
             end
         end
-    end
-end)
-
--- 2. Trang bị vũ khí
-local function EquipWeapon()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local backpack = LocalPlayer.Backpack
-    local currentTool = char:FindFirstChildOfClass("Tool")
-    
-    if currentTool and ((CONFIG.WeaponType == "Melee" and currentTool.ToolTip == "Melee") or (currentTool.ToolTip == CONFIG.WeaponType)) then return end
-
-    for _, tool in pairs(backpack:GetChildren()) do
-        if tool:IsA("Tool") and (tool.ToolTip == CONFIG.WeaponType or (CONFIG.WeaponType == "Melee" and tool.ToolTip == "Melee")) then
-            char.Humanoid:EquipTool(tool)
-            break
-        end
-    end
+    end)
 end
 
--- 3. Bay (Tween)
-local function TweenTo(targetPos)
+local function SmartMove(targetPos)
     local char = LocalPlayer.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    local dist = (hrp.Position - targetPos).Magnitude
-    local time = dist / CONFIG.FlySpeed
-    local tween = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
-    tween:Play()
-    
-    local bv = hrp:FindFirstChild("AntiFall") or Instance.new("BodyVelocity", hrp)
-    bv.Name = "AntiFall"
+    local bv = hrp:FindFirstChild("HVK_Fly") or Instance.new("BodyVelocity", hrp)
+    bv.Name = "HVK_Fly"
     bv.Velocity = Vector3.zero
     bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    
-    if dist < 50 then bv:Destroy(); tween:Cancel() end
+
+    local dist = (hrp.Position - targetPos).Magnitude
+    if dist < 20 then
+        hrp.CFrame = CFrame.new(targetPos)
+        return
+    end
+
+    local speed = CONFIG.FlySpeed
+    local tweenInfo = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
+    tween:Play()
 end
 
--- 4. Main Loop Auto Farm
-RunService.RenderStepped:Connect(function()
-    if CONFIG.AutoFarm and CONFIG.TargetPosition then
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local hrp = char.HumanoidRootPart
-            EquipWeapon()
-            
-            local targetMob = nil
-            for _, v in pairs(Workspace.Enemies:GetChildren()) do
-                if v.Name == CONFIG.SelectedMob and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-                    if (v.HumanoidRootPart.Position - hrp.Position).Magnitude < 3000 then targetMob = v; break end
-                end
-            end
-
-            if targetMob then
-                -- Bay tới đầu quái
-                local farmPos = targetMob.HumanoidRootPart.Position + Vector3.new(0, CONFIG.HoverHeight, 0)
-                hrp.CFrame = CFrame.new(farmPos, targetMob.HumanoidRootPart.Position)
-                
-                -- Giữ vị trí
-                if not hrp:FindFirstChild("BodyVelocity") then
-                    local bv = Instance.new("BodyVelocity", hrp)
-                    bv.Velocity = Vector3.zero
-                    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-                end
-                
-                -- LƯU Ý: Fast Attack đã chạy tự động ở luồng task.spawn bên trên rồi
-            else
-                TweenTo(CONFIG.TargetPosition)
+local function DoFastAttack()
+    local Net = ReplicatedStorage.Modules.Net
+    local RegAttack = Net["RE/RegisterAttack"]
+    local RegHit = Net["RE/RegisterHit"]
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local validEnemies = {}
+    local mainTarget = nil
+    for _, v in pairs(Workspace.Enemies:GetChildren()) do
+        if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+            local dist = (v.HumanoidRootPart.Position - hrp.Position).Magnitude
+            if dist < 60 then
+                table.insert(validEnemies, {v, v.HumanoidRootPart})
+                mainTarget = v.HumanoidRootPart
             end
         end
-    else
-        -- Dọn dẹp
+    end
+    if mainTarget then
+        RegAttack:FireServer(0)
+        RegHit:FireServer(mainTarget, validEnemies)
+    end
+end
+
+local function GetQuestData()
+    local myLevel = LocalPlayer.Data.Level.Value
+    local dataTable = {}
+    if CurrentSea == 1 then dataTable = DB.Sea1
+    elseif CurrentSea == 2 then dataTable = DB.Sea2
+    elseif CurrentSea == 3 then dataTable = DB.Sea3 end
+    local best = dataTable[1]
+    for _, q in ipairs(dataTable) do
+        if myLevel >= q.Req then best = q end
+    end
+    return best
+end
+
+local function HasActiveQuest()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui and playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("Quest") then
+        return playerGui.Main.Quest.Visible
+    end
+    return false
+end
+
+local function FindMob(name)
+    local hrp = LocalPlayer.Character.HumanoidRootPart
+    local closest, dist = nil, 9e9
+    for _, v in pairs(Workspace.Enemies:GetChildren()) do
+        if v.Name == name and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+            local d = (v.HumanoidRootPart.Position - hrp.Position).Magnitude
+            if d < dist then dist = d; closest = v end
+        end
+    end
+    return closest
+end
+
+-- --- LOGIC CHUYỂN SEA ---
+local function HandleSeaHop()
+    if not CONFIG.AutoSeaHop then return end
+    local myLevel = LocalPlayer.Data.Level.Value
+    if CurrentSea == 1 and myLevel >= 700 then
+        local IceAdmiral = FindMob("Ice Admiral")
+        if IceAdmiral then SmartMove(IceAdmiral.HumanoidRootPart.Position + Vector3.new(0, 15, 0))
+        else game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelDressrosa") end
+    end
+    if CurrentSea == 2 and myLevel >= 1500 then
+        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelZou")
+    end
+end
+
+-- --- MAIN LOOP ---
+RunService.RenderStepped:Connect(function()
+    if CONFIG.AutoFarmLevel then
         local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            if char.HumanoidRootPart:FindFirstChild("AntiFall") then char.HumanoidRootPart.AntiFall:Destroy() end
-            if char.HumanoidRootPart:FindFirstChild("BodyVelocity") then char.HumanoidRootPart.BodyVelocity:Destroy() end
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
+        
+        EquipWeapon()
+        pcall(DoFastAttack)
+        HandleSeaHop()
+
+        local quest = GetQuestData()
+        if not HasActiveQuest() then
+            if (hrp.Position - quest.NpcPos).Magnitude > 10 then
+                SmartMove(quest.NpcPos)
+            else
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", quest.QName, quest.QId)
+                task.wait(0.5)
+            end
+        else
+            local mob = FindMob(quest.Name)
+            if mob then
+                SmartMove(mob.HumanoidRootPart.Position + Vector3.new(0, CONFIG.HoverHeight, 0))
+            else
+                SmartMove(quest.MobPos + Vector3.new(0, 50, 0))
+            end
         end
     end
 end)
-
-StarterGui:SetCore("SendNotification", {Title = "HVK-9"; Text = "có gì cần hỗ trợ liên hệ 0896.XXX.XXX"; Duration = 5})
