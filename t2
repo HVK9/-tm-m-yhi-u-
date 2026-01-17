@@ -171,49 +171,150 @@ end
 -- --- DATABASE NHIỆM VỤ (GIỮ NGUYÊN) ---
 local DB = {
     Sea1 = {
-        {Req = 0, Name = "Bandit", QName = "BanditQuest1", QId = 1, NpcPos = Vector3.new(1060, 16, 1547), MobPos = Vector3.new(1150, 16, 1600)},
-        {Req = 10, Name = "Monkey", QName = "JungleQuest", QId = 1, NpcPos = Vector3.new(-1598, 36, 153), MobPos = Vector3.new(-1400, 30, 50)},
-        {Req = 15, Name = "Gorilla", QName = "JungleQuest", QId = 2, NpcPos = Vector3.new(-1598, 36, 153), MobPos = Vector3.new(-1200, 10, -500)},
-        {Req = 30, Name = "Pirate", QName = "BuggyQuest1", QId = 1, NpcPos = Vector3.new(-1140, 4, 3827), MobPos = Vector3.new(-1200, 10, 3900)},
-        {Req = 60, Name = "Desert Bandit", QName = "DesertQuest", QId = 1, NpcPos = Vector3.new(897, 6, 4387), MobPos = Vector3.new(950, 10, 4450)},
-        {Req = 90, Name = "Snow Bandit", QName = "SnowQuest", QId = 1, NpcPos = Vector3.new(1386, 87, -1296), MobPos = Vector3.new(1350, 90, -1350)},
-        {Req = 120, Name = "Chief Petty Officer", QName = "MarineQuest2", QId = 1, NpcPos = Vector3.new(-5039, 27, 4323), MobPos = Vector3.new(-4900, 30, 4200)},
-        {Req = 150, Name = "Sky Bandit", QName = "SkyQuest", QId = 1, NpcPos = Vector3.new(-4842, 717, -2622), MobPos = Vector3.new(-4950, 280, -2900)},
-        {Req = 190, Name = "Prisoner", QName = "PrisonerQuest", QId = 1, NpcPos = Vector3.new(5306, 1, 477), MobPos = Vector3.new(5100, 5, 500)},
-        {Req = 225, Name = "Toga Warrior", QName = "ColosseumQuest", QId = 1, NpcPos = Vector3.new(-1575, 7, -2984), MobPos = Vector3.new(-1400, 10, -2800)},
-        {Req = 300, Name = "Military Soldier", QName = "MagmaQuest", QId = 1, NpcPos = Vector3.new(-5314, 12, 8515), MobPos = Vector3.new(-5400, 20, 8600)},
-        {Req = 375, Name = "Fishman Warrior", QName = "FishmanQuest", QId = 1, NpcPos = Vector3.new(6112, 18, 1569), MobPos = Vector3.new(6000, 50, 1400)},
-        {Req = 450, Name = "God's Guard", QName = "SkyQuest", QId = 1, NpcPos = Vector3.new(-4842, 717, -2622), MobPos = Vector3.new(-4700, 550, -2000)},
-        {Req = 525, Name = "Royal Squad", QName = "SkyQuest", QId = 2, NpcPos = Vector3.new(-7906, 5541, -1412), MobPos = Vector3.new(-7800, 5600, -1450)},
-        {Req = 625, Name = "Galley Pirate", QName = "FountainQuest", QId = 1, NpcPos = Vector3.new(5259, 38, 4050), MobPos = Vector3.new(5600, 50, 4000)},
+    {Req = 0, Name = "Bandit", QName = "BanditQuest1", QId = 1, NpcPos = Vector3.new(1060, 17, 1549), MobPos = Vector3.new(1145, 17, 1634)},
+    
+    -- Jungle
+    {Req = 10, Name = "Monkey", QName = "JungleQuest", QId = 1, NpcPos = Vector3.new(-1602, 37, 153), MobPos = Vector3.new(-1497, 30, 60)},
+    {Req = 15, Name = "Gorilla", QName = "JungleQuest", QId = 2, NpcPos = Vector3.new(-1602, 37, 153), MobPos = Vector3.new(-1246, 6, -500)},
+    
+    -- Pirate Village
+    {Req = 30, Name = "Pirate", QName = "BuggyQuest1", QId = 1, NpcPos = Vector3.new(-1140, 5, 3828), MobPos = Vector3.new(-1218, 15, 3911)},
+    {Req = 40, Name = "Brute", QName = "BuggyQuest1", QId = 2, NpcPos = Vector3.new(-1140, 5, 3828), MobPos = Vector3.new(-1163, 15, 4363)},
+    
+    -- Desert
+    {Req = 60, Name = "Desert Bandit", QName = "DesertQuest", QId = 1, NpcPos = Vector3.new(897, 7, 4388), MobPos = Vector3.new(952, 10, 4454)},
+    {Req = 75, Name = "Desert Officer", QName = "DesertQuest", QId = 2, NpcPos = Vector3.new(897, 7, 4388), MobPos = Vector3.new(1530, 10, 4376)},
+    
+    -- Snow Village
+    {Req = 90, Name = "Snow Bandit", QName = "SnowQuest", QId = 1, NpcPos = Vector3.new(1385, 87, -1299), MobPos = Vector3.new(1325, 106, -1355)},
+    {Req = 100, Name = "Snowman", QName = "SnowQuest", QId = 2, NpcPos = Vector3.new(1385, 87, -1299), MobPos = Vector3.new(1253, 106, -1470)},
+    
+    -- Marineford
+    {Req = 120, Name = "Chief Petty Officer", QName = "MarineQuest2", QId = 1, NpcPos = Vector3.new(-5036, 29, 4325), MobPos = Vector3.new(-4923, 30, 4216)},
+    {Req = 130, Name = "Vice Admiral", QName = "MarineQuest2", QId = 2, NpcPos = Vector3.new(-5036, 29, 4325), MobPos = Vector3.new(-4784, 21, 4357)},
+    
+    -- Skylands
+    {Req = 150, Name = "Sky Bandit", QName = "SkyQuest", QId = 1, NpcPos = Vector3.new(-4842, 718, -2623), MobPos = Vector3.new(-4981, 718, -2706)},
+    {Req = 175, Name = "Dark Master", QName = "SkyQuest", QId = 2, NpcPos = Vector3.new(-4842, 718, -2623), MobPos = Vector3.new(-5244, 715, -2279)},
+    
+    -- Impel Down (Prison)
+    {Req = 225, Name = "Warden", QName = "ImpelQuest", QId = 1, NpcPos = Vector3.new(5307, 2, 474), MobPos = Vector3.new(5222, 2, 693)},
+    {Req = 230, Name = "Prisoner", QName = "ImpelQuest", QId = 2, NpcPos = Vector3.new(5307, 2, 474), MobPos = Vector3.new(4863, 2, 574)},
+    
+    -- Colosseum
+    {Req = 275, Name = "Toga Warrior", QName = "ColosseumQuest", QId = 1, NpcPos = Vector3.new(-1576, 8, -2985), MobPos = Vector3.new(-1390, 40, -2824)},
+    {Req = 300, Name = "Gladiator", QName = "ColosseumQuest", QId = 2, NpcPos = Vector3.new(-1576, 8, -2985), MobPos = Vector3.new(-1162, 40, -2947)},
+    
+    -- Magma Village
+    {Req = 300, Name = "Military Soldier", QName = "MagmaQuest", QId = 1, NpcPos = Vector3.new(-5319, 12, 8515), MobPos = Vector3.new(-5452, 33, 8565)},
+    {Req = 325, Name = "Military Spy", QName = "MagmaQuest", QId = 2, NpcPos = Vector3.new(-5319, 12, 8515), MobPos = Vector3.new(-5824, 73, 8760)},
+    
+    -- Underwater City
+    {Req = 375, Name = "Fishman Warrior", QName = "FishmanQuest", QId = 1, NpcPos = Vector3.new(61122, 19, 1569), MobPos = Vector3.new(60995, 43, 1435)},
+    {Req = 400, Name = "Fishman Commando", QName = "FishmanQuest", QId = 2, NpcPos = Vector3.new(61122, 19, 1569), MobPos = Vector3.new(61993, 38, 1432)},
+    
+    -- Upper Skylands
+    {Req = 450, Name = "God's Guard", QName = "SkyQuest2", QId = 1, NpcPos = Vector3.new(-7861, 5545, -381), MobPos = Vector3.new(-7667, 5600, -438)},
+    {Req = 525, Name = "Shanda", QName = "SkyQuest2", QId = 2, NpcPos = Vector3.new(-7861, 5545, -381), MobPos = Vector3.new(-7683, 5600, -1409)},
+    {Req = 575, Name = "Royal Squad", QName = "SkyQuest2", QId = 3, NpcPos = Vector3.new(-7904, 5636, -1412), MobPos = Vector3.new(-7593, 5645, -1628)}, -- Lưu ý: QId có thể thay đổi tùy cách code
+    
+    -- Fountain City
+    {Req = 625, Name = "Galley Pirate", QName = "FountainQuest", QId = 1, NpcPos = Vector3.new(5259, 39, 4054), MobPos = Vector3.new(5573, 127, 4038)},
+    {Req = 650, Name = "Galley Captain", QName = "FountainQuest", QId = 2, NpcPos = Vector3.new(5259, 39, 4054), MobPos = Vector3.new(5561, 38, 4954)},
     },
     Sea2 = {
-        {Req = 700, Name = "Raider", QName = "Area1Quest", QId = 1, NpcPos = Vector3.new(-429, 72, 1836), MobPos = Vector3.new(-480, 72, 1860)},
-        {Req = 775, Name = "Swan Pirate", QName = "Area1Quest", QId = 2, NpcPos = Vector3.new(-429, 72, 1836), MobPos = Vector3.new(870, 120, 1200)},
-        {Req = 875, Name = "Marine Lieutenant", QName = "MarineQuest3", QId = 1, NpcPos = Vector3.new(-2440, 72, -2788), MobPos = Vector3.new(-2000, 70, -2600)},
-        {Req = 950, Name = "Zombie", QName = "ZombieQuest", QId = 1, NpcPos = Vector3.new(-5492, 48, -795), MobPos = Vector3.new(-5500, 10, -50)},
-        {Req = 1000, Name = "Snow Trooper", QName = "SnowQuest", QId = 1, NpcPos = Vector3.new(609, 401, -1491), MobPos = Vector3.new(700, 400, -1300)},
-        {Req = 1100, Name = "Lab Subordinate", QName = "IceSideQuest", QId = 1, NpcPos = Vector3.new(-6064, 15, -8352), MobPos = Vector3.new(-5800, 15, -8300)},
-        {Req = 1175, Name = "Magma Ninja", QName = "FireSideQuest", QId = 1, NpcPos = Vector3.new(-5428, 15, -8515), MobPos = Vector3.new(-5400, 15, -8300)},
-        {Req = 1250, Name = "Ship Deckhand", QName = "ShipQuest1", QId = 1, NpcPos = Vector3.new(1038, 125, 32913), MobPos = Vector3.new(920, 125, 32800)},
-        {Req = 1350, Name = "Arctic Warrior", QName = "FrostQuest", QId = 1, NpcPos = Vector3.new(5667, 28, -6486), MobPos = Vector3.new(6000, 28, -6000)},
-        {Req = 1425, Name = "Sea Soldier", QName = "ForgottenQuest", QId = 1, NpcPos = Vector3.new(-3054, 235, -10142), MobPos = Vector3.new(-3000, 240, -10000)},
-        {Req = 1450, Name = "Water Fighter", QName = "ForgottenQuest", QId = 2, NpcPos = Vector3.new(-3054, 235, -10142), MobPos = Vector3.new(-3400, 240, -10500)},
+    -- Kingdom of Rose (Dock)
+    {Req = 700, Name = "Raider", QName = "Area1Quest", QId = 1, NpcPos = Vector3.new(-425, 73, 1836), MobPos = Vector3.new(-762, 79, 2374)},
+    {Req = 725, Name = "Mercenary", QName = "Area1Quest", QId = 2, NpcPos = Vector3.new(-425, 73, 1836), MobPos = Vector3.new(-998, 93, 2038)},
+    
+    -- Kingdom of Rose (Swan)
+    {Req = 775, Name = "Swan Pirate", QName = "Area2Quest", QId = 1, NpcPos = Vector3.new(638, 73, 918), MobPos = Vector3.new(839, 126, 1083)},
+    {Req = 800, Name = "Factory Staff", QName = "Area2Quest", QId = 2, NpcPos = Vector3.new(638, 73, 918), MobPos = Vector3.new(303, 73, 574)},
+    
+    -- Green Zone
+    {Req = 875, Name = "Marine Lieutenant", QName = "MarineQuest3", QId = 1, NpcPos = Vector3.new(-2443, 73, -3216), MobPos = Vector3.new(-2217, 72, -3052)},
+    {Req = 900, Name = "Marine Captain", QName = "MarineQuest3", QId = 2, NpcPos = Vector3.new(-2443, 73, -3216), MobPos = Vector3.new(-2697, 72, -3035)},
+    
+    -- Graveyard
+    {Req = 950, Name = "Zombie", QName = "ZombieQuest", QId = 1, NpcPos = Vector3.new(-5492, 48, -795), MobPos = Vector3.new(-5688, 7, -725)},
+    {Req = 975, Name = "Vampire", QName = "ZombieQuest", QId = 2, NpcPos = Vector3.new(-5492, 48, -795), MobPos = Vector3.new(-6083, 7, -1318)},
+    
+    -- Snow Mountain
+    {Req = 1000, Name = "Snow Trooper", QName = "SnowMountainQuest", QId = 1, NpcPos = Vector3.new(609, 401, -5372), MobPos = Vector3.new(477, 401, -5330)},
+    {Req = 1050, Name = "Winter Warrior", QName = "SnowMountainQuest", QId = 2, NpcPos = Vector3.new(609, 401, -5372), MobPos = Vector3.new(1166, 428, -5182)},
+    
+    -- Hot and Cold
+    {Req = 1100, Name = "Lab Subordinate", QName = "IceSideQuest", QId = 1, NpcPos = Vector3.new(-5432, 16, -5295), MobPos = Vector3.new(-5767, 40, -5670)},
+    {Req = 1125, Name = "Horned Warrior", QName = "IceSideQuest", QId = 2, NpcPos = Vector3.new(-5432, 16, -5295), MobPos = Vector3.new(-6067, 39, -5892)},
+    {Req = 1175, Name = "Magma Ninja", QName = "FireSideQuest", QId = 1, NpcPos = Vector3.new(-5432, 16, -5295), MobPos = Vector3.new(-5421, 57, -5937)},
+    {Req = 1200, Name = "Lava Pirate", QName = "FireSideQuest", QId = 2, NpcPos = Vector3.new(-5432, 16, -5295), MobPos = Vector3.new(-5060, 48, -5090)},
+    
+    -- Cursed Ship (Lưu ý: Tọa độ này là bên trong tàu)
+    {Req = 1250, Name = "Ship Deckhand", QName = "ShipQuest1", QId = 1, NpcPos = Vector3.new(923, 125, 32853), MobPos = Vector3.new(650, 131, 32962)},
+    {Req = 1275, Name = "Ship Engineer", QName = "ShipQuest1", QId = 2, NpcPos = Vector3.new(923, 125, 32853), MobPos = Vector3.new(-24, 150, 32938)},
+    {Req = 1300, Name = "Ship Steward", QName = "ShipQuest2", QId = 1, NpcPos = Vector3.new(912, 125, 32850), MobPos = Vector3.new(-24, 150, 32938)}, -- Vị trí mob tương tự
+    {Req = 1325, Name = "Ship Officer", QName = "ShipQuest2", QId = 2, NpcPos = Vector3.new(912, 125, 32850), MobPos = Vector3.new(297, 149, 32560)},
+    
+    -- Ice Castle
+    {Req = 1350, Name = "Arctic Warrior", QName = "FrostQuest", QId = 1, NpcPos = Vector3.new(5667, 28, -6486), MobPos = Vector3.new(6076, 28, -6261)},
+    {Req = 1375, Name = "Snow Lurker", QName = "FrostQuest", QId = 2, NpcPos = Vector3.new(5667, 28, -6486), MobPos = Vector3.new(5566, 41, -6812)},
+    
+    -- Forgotten Island
+    {Req = 1425, Name = "Sea Soldier", QName = "ForgottenQuest", QId = 1, NpcPos = Vector3.new(-3054, 237, -10142), MobPos = Vector3.new(-2940, 237, -9797)},
+    {Req = 1450, Name = "Water Fighter", QName = "ForgottenQuest", QId = 2, NpcPos = Vector3.new(-3054, 237, -10142), MobPos = Vector3.new(-3479, 237, -10432)},
     },
     Sea3 = {
-        {Req = 1500, Name = "Pirate Millionaire", QName = "PiratePortQuest", QId = 1, NpcPos = Vector3.new(-290, 44, 5584), MobPos = Vector3.new(-300, 50, 5500)},
-        {Req = 1575, Name = "Dragon Crew Warrior", QName = "AmazonQuest", QId = 1, NpcPos = Vector3.new(5832, 51, -1106), MobPos = Vector3.new(6300, 50, -1000)},
-        {Req = 1700, Name = "Marine Commodore", QName = "MarineTreeIsland", QId = 1, NpcPos = Vector3.new(2181, 29, -6741), MobPos = Vector3.new(2450, 70, -7350)},
-        {Req = 1775, Name = "Fishman Raider", QName = "DeepForestIsland3", QId = 1, NpcPos = Vector3.new(-10581, 332, -8761), MobPos = Vector3.new(-10400, 330, -8400)},
-        {Req = 1800, Name = "Fishman Captain", QName = "DeepForestIsland3", QId = 2, NpcPos = Vector3.new(-10581, 332, -8761), MobPos = Vector3.new(-10800, 330, -8600)},
-        {Req = 1975, Name = "Reborn Skeleton", QName = "HauntedQuest1", QId = 1, NpcPos = Vector3.new(-9482, 142, 5567), MobPos = Vector3.new(-8800, 140, 5900)},
-        {Req = 2075, Name = "Peanut Scout", QName = "NutsIslandQuest", QId = 1, NpcPos = Vector3.new(-2104, 38, -10192), MobPos = Vector3.new(-2000, 70, -12500)},
-        {Req = 2200, Name = "Cookie Crafter", QName = "IceCreamIslandQuest", QId = 1, NpcPos = Vector3.new(-818, 66, -16117), MobPos = Vector3.new(-2000, 70, -11500)},
-        {Req = 2300, Name = "Cocoa Warrior", QName = "ChocQuest1", QId = 1, NpcPos = Vector3.new(231, 23, -12194), MobPos = Vector3.new(200, 50, -12200)},
-        {Req = 2400, Name = "Candy Pirate", QName = "CandyQuest1", QId = 1, NpcPos = Vector3.new(-1148, 13, -14445), MobPos = Vector3.new(-1800, 40, -14500)},
-        {Req = 2575, Name = "Shark Hunter", QName = "SharkHunterQuest", QId = 1, NpcPos = Vector3.new(-16500, 20, 2000), MobPos = Vector3.new(-17000, 20, 2000)},
-        {Req = 2725, Name = "Isle Champion", QName = "TikiQuest2", QId = 1, NpcPos = Vector3.new(-16200, 20, 1000), MobPos = Vector3.new(-16400, 137, 1100)},
-    }
+    -- Port Town
+    {Req = 1500, Name = "Pirate Millionaire", QName = "PiratePortQuest", QId = 1, NpcPos = Vector3.new(-290, 44, 5539), MobPos = Vector3.new(-369, 44, 5293)},
+    {Req = 1525, Name = "Pistol Billionaire", QName = "PiratePortQuest", QId = 2, NpcPos = Vector3.new(-290, 44, 5539), MobPos = Vector3.new(-546, 60, 5635)},
+    
+    -- Hydra Island
+    {Req = 1575, Name = "Dragon Crew Warrior", QName = "AmazonQuest", QId = 1, NpcPos = Vector3.new(5835, 1019, -1106), MobPos = Vector3.new(6084, 1045, -1274)},
+    {Req = 1600, Name = "Dragon Crew Archer", QName = "AmazonQuest", QId = 2, NpcPos = Vector3.new(5835, 1019, -1106), MobPos = Vector3.new(6479, 1045, -676)},
+    {Req = 1625, Name = "Female Islander", QName = "AmazonQuest2", QId = 1, NpcPos = Vector3.new(5443, 1019, -793), MobPos = Vector3.new(5345, 1024, -586)},
+    {Req = 1650, Name = "Giant Islander", QName = "AmazonQuest2", QId = 2, NpcPos = Vector3.new(5443, 1019, -793), MobPos = Vector3.new(4849, 1024, -733)},
+    
+    -- Great Tree
+    {Req = 1700, Name = "Marine Commodore", QName = "MarineTreeQuest", QId = 1, NpcPos = Vector3.new(2180, 29, -6737), MobPos = Vector3.new(2433, 29, -6797)},
+    {Req = 1725, Name = "Marine Rear Admiral", QName = "MarineTreeQuest", QId = 2, NpcPos = Vector3.new(2180, 29, -6737), MobPos = Vector3.new(3747, 169, -7122)},
+    
+    -- Floating Turtle
+    {Req = 1775, Name = "Fishman Raider", QName = "DeepForestQuest", QId = 1, NpcPos = Vector3.new(-10584, 332, -8758), MobPos = Vector3.new(-10229, 332, -8473)},
+    {Req = 1800, Name = "Fishman Captain", QName = "DeepForestQuest", QId = 2, NpcPos = Vector3.new(-10584, 332, -8758), MobPos = Vector3.new(-10940, 332, -8902)},
+    {Req = 1825, Name = "Forest Pirate", QName = "DeepForestQuest2", QId = 1, NpcPos = Vector3.new(-13232, 332, -7626), MobPos = Vector3.new(-13554, 333, -7766)},
+    {Req = 1850, Name = "Mythological Pirate", QName = "DeepForestQuest2", QId = 2, NpcPos = Vector3.new(-13232, 332, -7626), MobPos = Vector3.new(-13317, 331, -7097)},
+    {Req = 1900, Name = "Jungle Pirate", QName = "DeepForestQuest3", QId = 1, NpcPos = Vector3.new(-12684, 391, -9902), MobPos = Vector3.new(-12224, 333, -10452)},
+    {Req = 1925, Name = "Musketeer Pirate", QName = "DeepForestQuest3", QId = 2, NpcPos = Vector3.new(-12684, 391, -9902), MobPos = Vector3.new(-13295, 392, -9841)},
+    
+    -- Haunted Castle
+    {Req = 1975, Name = "Reborn Skeleton", QName = "HauntedQuest", QId = 1, NpcPos = Vector3.new(-9482, 142, 5567), MobPos = Vector3.new(-8760, 142, 6038)},
+    {Req = 2000, Name = "Living Zombie", QName = "HauntedQuest", QId = 2, NpcPos = Vector3.new(-9482, 142, 5567), MobPos = Vector3.new(-10143, 140, 5928)},
+    {Req = 2025, Name = "Demonic Soul", QName = "HauntedQuest2", QId = 1, NpcPos = Vector3.new(-9513, 172, 6079), MobPos = Vector3.new(-9500, 174, 6150)}, -- Inside building
+    {Req = 2050, Name = "Posessed Mummy", QName = "HauntedQuest2", QId = 2, NpcPos = Vector3.new(-9513, 172, 6079), MobPos = Vector3.new(-9585, 6, 6135)}, -- Basement
+    
+    -- Sea of Treats
+    {Req = 2075, Name = "Peanut Scout", QName = "NutsIslandQuest", QId = 1, NpcPos = Vector3.new(-2104, 38, -10192), MobPos = Vector3.new(-2035, 38, -10350)},
+    {Req = 2100, Name = "Peanut President", QName = "NutsIslandQuest", QId = 2, NpcPos = Vector3.new(-2104, 38, -10192), MobPos = Vector3.new(-2241, 38, -10475)},
+    {Req = 2125, Name = "Ice Cream Chef", QName = "IceCreamIslandQuest", QId = 1, NpcPos = Vector3.new(-822, 66, -10965), MobPos = Vector3.new(-655, 65, -11100)},
+    {Req = 2150, Name = "Ice Cream Commander", QName = "IceCreamIslandQuest", QId = 2, NpcPos = Vector3.new(-822, 66, -10965), MobPos = Vector3.new(-1009, 66, -11242)},
+    
+    -- Cake Land
+    {Req = 2175, Name = "Cookie Crafter", QName = "CakeQuest1", QId = 1, NpcPos = Vector3.new(-2020, 38, -12025), MobPos = Vector3.new(-2243, 38, -12089)},
+    {Req = 2200, Name = "Cake Guard", QName = "CakeQuest1", QId = 2, NpcPos = Vector3.new(-2020, 38, -12025), MobPos = Vector3.new(-1645, 38, -12276)},
+    {Req = 2225, Name = "Baking Staff", QName = "CakeQuest2", QId = 1, NpcPos = Vector3.new(-1926, 38, -12850), MobPos = Vector3.new(-1808, 38, -12975)},
+    {Req = 2250, Name = "Head Baker", QName = "CakeQuest2", QId = 2, NpcPos = Vector3.new(-1926, 38, -12850), MobPos = Vector3.new(-2138, 38, -12918)},
+    
+    -- Chocolate Island
+    {Req = 2300, Name = "Cocoa Warrior", QName = "ChocQuest1", QId = 1, NpcPos = Vector3.new(231, 23, -12200), MobPos = Vector3.new(125, 23, -12513)},
+    {Req = 2325, Name = "Chocolate Bar Battler", QName = "ChocQuest1", QId = 2, NpcPos = Vector3.new(231, 23, -12200), MobPos = Vector3.new(465, 23, -12621)},
+    {Req = 2350, Name = "Sweet Thief", QName = "ChocQuest2", QId = 1, NpcPos = Vector3.new(151, 23, -12774), MobPos = Vector3.new(115, 23, -13000)},
+    {Req = 2375, Name = "Candy Rebel", QName = "ChocQuest2", QId = 2, NpcPos = Vector3.new(151, 23, -12774), MobPos = Vector3.new(147, 23, -13317)},
+    
+    -- Tiki Outpost
+    {Req = 2450, Name = "Isle Outlaw", QName = "TikiQuest1", QId = 1, NpcPos = Vector3.new(-16234, 9, 416), MobPos = Vector3.new(-15128, 9, 1726)},
+    {Req = 2475, Name = "Island Boy", QName = "TikiQuest1", QId = 2, NpcPos = Vector3.new(-16234, 9, 416), MobPos = Vector3.new(-14695, 11, 792)},
+    {Req = 2500, Name = "Sun-kissed Warrior", QName = "TikiQuest2", QId = 1, NpcPos = Vector3.new(-16507, 10, 1051), MobPos = Vector3.new(-17202, 10, 1152)},
+    {Req = 2525, Name = "Isle Champion", QName = "TikiQuest2", QId = 2, NpcPos = Vector3.new(-16507, 10, 1051), MobPos = Vector3.new(-16788, 54, 386)},
 }
 
 -- --- HÀM LOGIC FARM ---
