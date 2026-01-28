@@ -1,1 +1,187 @@
+-- Dịch vụ
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
 
+-- Biến trạng thái
+local Holding = false
+local ESP_Boxes = {} -- Danh sách lưu trữ các khung ESP
+
+-- Cài đặt (Settings)
+_G.AimbotEnabled = true
+_G.ESPEnabled = true -- Bật/Tắt ESP (Wallhack)
+_G.TeamCheck = false -- Bật true để không aim/ESP đồng đội
+
+_G.AimPart = "Head" -- Aim vào đầu
+_G.Sensitivity = 0 -- Aim ngay lập tức (Instant)
+
+-- Cài đặt vòng tròn FOV
+_G.CircleRadius = 80
+_G.CircleColor = Color3.fromRGB(255, 255, 255)
+_G.CircleTransparency = 0.7
+_G.CircleVisible = true
+
+-- Cài đặt ESP Box
+_G.ESPColor = Color3.fromRGB(255, 0, 0) -- Màu khung kẻ địch (Đỏ)
+_G.ESPThickness = 1.5
+_G.ESPTeamColor = false -- Nếu true, màu ESP sẽ theo màu team của địch
+
+-- Tạo vòng tròn FOV
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+FOVCircle.Radius = _G.CircleRadius
+FOVCircle.Filled = false
+FOVCircle.Color = _G.CircleColor
+FOVCircle.Visible = _G.CircleVisible
+FOVCircle.Transparency = _G.CircleTransparency
+FOVCircle.NumSides = 64
+FOVCircle.Thickness = 1
+
+--------------------------------------------------------------------------------
+-- HÀM XỬ LÝ ESP (VẼ KHUNG)
+--------------------------------------------------------------------------------
+local function CreateESP(player)
+    local Box = Drawing.new("Square")
+    Box.Visible = false
+    Box.Color = _G.ESPColor
+    Box.Thickness = _G.ESPThickness
+    Box.Transparency = 1
+    Box.Filled = false
+    ESP_Boxes[player] = Box
+end
+
+local function RemoveESP(player)
+    if ESP_Boxes[player] then
+        ESP_Boxes[player]:Remove()
+        ESP_Boxes[player] = nil
+    end
+end
+
+local function UpdateESP()
+    for player, Box in pairs(ESP_Boxes) do
+        -- Kiểm tra điều kiện cơ bản để hiện ESP
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 and player ~= LocalPlayer then
+            
+            -- Kiểm tra Team (nếu bật TeamCheck thì ẩn đồng đội)
+            if _G.TeamCheck and player.Team == LocalPlayer.Team then
+                Box.Visible = false
+                continue
+            end
+
+            local RootPart = player.Character.HumanoidRootPart
+            
+            -- Tính toán vị trí trên màn hình
+            local RootPos, OnScreen = Camera:WorldToViewportPoint(RootPart.Position)
+            
+            if OnScreen and _G.ESPEnabled then
+                -- Tính kích thước Box dựa trên khoảng cách (Càng xa càng nhỏ)
+                local Height = (Camera.CFrame.Position - RootPart.Position).Magnitude
+                local BoxHeight = 2500 / Height -- Tỷ lệ chuẩn
+                local BoxWidth = BoxHeight / 1.5 -- Tỷ lệ chiều rộng
+
+                Box.Size = Vector2.new(BoxWidth, BoxHeight)
+                Box.Position = Vector2.new(RootPos.X - BoxWidth / 2, RootPos.Y - BoxHeight / 2)
+                
+                -- Cập nhật màu sắc
+                if _G.ESPTeamColor then
+                    Box.Color = player.TeamColor.Color
+                else
+                    Box.Color = _G.ESPColor
+                end
+                
+                Box.Visible = true
+            else
+                Box.Visible = false
+            end
+        else
+            Box.Visible = false
+        end
+    end
+end
+
+-- Kết nối sự kiện thêm/xóa người chơi cho ESP
+Players.PlayerAdded:Connect(CreateESP)
+Players.PlayerRemoving:Connect(RemoveESP)
+
+-- Tạo ESP cho những người chơi đã có sẵn trong server
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        CreateESP(player)
+    end
+end
+
+--------------------------------------------------------------------------------
+-- HÀM TÌM MỤC TIÊU GẦN NHẤT
+--------------------------------------------------------------------------------
+local function GetClosestPlayer()
+    local MaximumDistance = _G.CircleRadius
+    local Target = nil
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v.Name ~= LocalPlayer.Name then
+            if _G.TeamCheck and v.Team == LocalPlayer.Team then continue end
+
+            if v.Character then
+                local AimPart = v.Character:FindFirstChild(_G.AimPart)
+                local Humanoid = v.Character:FindFirstChild("Humanoid")
+                local RootPart = v.Character:FindFirstChild("HumanoidRootPart")
+
+                if AimPart and RootPart and Humanoid and Humanoid.Health > 0 then
+                    local ScreenPoint, OnScreen = Camera:WorldToViewportPoint(AimPart.Position)
+
+                    if OnScreen then
+                        local MouseLocation = UserInputService:GetMouseLocation()
+                        local VectorDistance = (Vector2.new(MouseLocation.X, MouseLocation.Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
+
+                        if VectorDistance < MaximumDistance then
+                            MaximumDistance = VectorDistance
+                            Target = v
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return Target
+end
+
+--------------------------------------------------------------------------------
+-- XỬ LÝ ĐẦU VÀO (ĐÃ ĐỔI SANG CHUỘT TRÁI - MouseButton1)
+--------------------------------------------------------------------------------
+UserInputService.InputBegan:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+        Holding = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+        Holding = false
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- VÒNG LẶP CHÍNH (RENDER STEPPED)
+--------------------------------------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    -- 1. Cập nhật vị trí vòng tròn FOV
+    local MousePos = UserInputService:GetMouseLocation()
+    FOVCircle.Position = Vector2.new(MousePos.X, MousePos.Y)
+    FOVCircle.Radius = _G.CircleRadius
+    FOVCircle.Visible = _G.CircleVisible
+
+    -- 2. Cập nhật ESP
+    UpdateESP()
+
+    -- 3. Xử lý Aimbot (Dí ngay lập tức)
+    if Holding and _G.AimbotEnabled then
+        local ClosestPlayer = GetClosestPlayer()
+        if ClosestPlayer and ClosestPlayer.Character and ClosestPlayer.Character:FindFirstChild(_G.AimPart) then
+            -- Dùng CFrame để khóa cứng mục tiêu (Instant Lock)
+            local TargetPos = ClosestPlayer.Character[_G.AimPart].Position
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, TargetPos)
+        end
+    end
+end)
