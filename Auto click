@@ -1,0 +1,527 @@
+#include <windows.h>
+#include <iostream>
+#include <string>
+#include <cstdio>
+#include <dwmapi.h>
+#include <commctrl.h>
+#include <shellapi.h>
+#include <ctime>
+#include "resource.h"
+
+#pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "user32.lib")
+#pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "dwmapi.lib")
+#pragma comment(lib, "comctl32.lib")
+#pragma comment(lib, "shell32.lib")
+
+// ============================================================
+//   ID CONTROLS
+// ============================================================
+#define ID_BUTTON_START     1
+#define ID_EDIT_INTERVAL    2
+#define ID_LABEL_STATUS     3
+#define ID_BUTTON_SETKEY    4
+#define ID_COMBO_CLICKTYPE  5
+#define ID_CHECK_RANDOM     6
+#define ID_EDIT_RANDVAR     7
+#define ID_CHECK_MAXCLICK   8
+#define ID_EDIT_MAXCLICK    9
+#define ID_CHECK_FIXPOS     10
+#define ID_EDIT_POSX        11
+#define ID_EDIT_POSY        12
+#define ID_LABEL_STATS      13
+#define ID_TIMER_STATS      100
+#define ID_TRAY_ICON        200
+#define ID_TRAY_SHOW        201
+#define ID_TRAY_EXIT        202
+#define WM_TRAYICON         (WM_USER + 1)
+
+// ============================================================
+//   MÀU SẮC - THEME TỐI
+// ============================================================
+#define COLOR_BG            RGB(18,  18,  18)
+#define COLOR_SURFACE       RGB(30,  30,  30)
+#define COLOR_SURFACE2      RGB(45,  45,  45)
+#define COLOR_ACCENT        RGB(0,   122, 255)   // Xanh dương Apple
+#define COLOR_ACCENT_HOVER  RGB(30,  142, 255)
+#define COLOR_DANGER        RGB(255, 69,  58)    // Đỏ khi đang chạy
+#define COLOR_SUCCESS       RGB(48,  209, 88)    // Xanh lá khi chạy
+#define COLOR_TEXT          RGB(255, 255, 255)
+#define COLOR_TEXT_DIM      RGB(150, 150, 150)
+#define COLOR_BORDER        RGB(60,  60,  60)
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+// ============================================================
+//   BIẾN TOÀN CỤC
+// ============================================================
+HWND g_hwnd;
+HWND hEdit, hStatus, hButtonStart, hButtonSetKey;
+HWND hComboClickType, hCheckRandom, hEditRandVar;
+HWND hCheckMaxClick, hEditMaxClick;
+HWND hCheckFixPos, hEditPosX, hEditPosY;
+HWND hLabelStats;
+HBRUSH hBrushBg, hBrushSurface, hBrushSurface2;
+NOTIFYICONDATA nid = {};
+
+// Trạng thái
+bool isClicking       = false;
+bool isWaitingForKey  = false;
+bool useRandomVar     = false;
+bool useMaxClick      = false;
+bool useFixedPos      = false;
+
+// Cấu hình
+int  interval         = 100;   // ms
+int  randomVariance   = 20;    // ± ms
+int  maxClicks        = 0;
+int  currentHotkey    = VK_F2;
+int  clickType        = 0;     // 0=Left, 1=Right, 2=Double
+
+// Thống kê
+volatile LONG totalClicks = 0;
+volatile LONG clicksInSecond = 0;
+float currentCPS      = 0.0f;
+
+// Fixed position
+int fixedX = 0, fixedY = 0;
+
+// Event cho thread
+HANDLE hClickEvent   = NULL;
+HANDLE hStopEvent    = NULL;
+
+// ============================================================
+//   HELPER: Lấy số ngẫu nhiên trong khoảng [lo, hi]
+// ============================================================
+int RandRange(int lo, int hi) {
+    if (lo >= hi) return lo;
+    return lo + (rand() % (hi - lo + 1));
+}
+
+// ============================================================
+//   THREAD: THỰC HIỆN CLICK
+// ============================================================
+DWORD WINAPI ClickerThread(LPVOID lpParam) {
+    srand((unsigned)time(NULL));
+    while (true) {
+        // Chờ signal hoặc stop
+        HANDLE handles[2] = { hClickEvent, hStopEvent };
+        DWORD waitResult = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+        if (waitResult == WAIT_OBJECT_0 + 1) break; // Stop event -> thoát
+
+        // Bắt đầu click loop
+        while (isClicking) {
+            // Xác định vị trí click
+            int cx = 0, cy = 0;
+            if (useFixedPos) {
+                cx = fixedX;
+                cy = fixedY;
+            }
+
+            switch (clickType) {
+            case 0: // Left Click
+                if (useFixedPos) {
+                    SetCursorPos(cx, cy);
+                    Sleep(5);
+                }
+                mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                mouse_event(MOUSEEVENTF_LEFTUP,   0, 0, 0, 0);
+                break;
+            case 1: // Right Click
+                if (useFixedPos) {
+                    SetCursorPos(cx, cy);
+                    Sleep(5);
+                }
+                mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
+                mouse_event(MOUSEEVENTF_RIGHTUP,   0, 0, 0, 0);
+                break;
+            case 2: // Double Click
+                if (useFixedPos) {
+                    SetCursorPos(cx, cy);
+                    Sleep(5);
+                }
+                mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                mouse_event(MOUSEEVENTF_LEFTUP,   0, 0, 0, 0);
+                Sleep(30);
+                mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                mouse_event(MOUSEEVENTF_LEFTUP,   0, 0, 0, 0);
+                break;
+            }
+
+            InterlockedIncrement(&totalClicks);
+            InterlockedIncrement(&clicksInSecond);
+
+            // Kiểm tra giới hạn click
+            if (useMaxClick && maxClicks > 0 && totalClicks >= maxClicks) {
+                isClicking = false;
+                ResetEvent(hClickEvent);
+                PostMessage(g_hwnd, WM_COMMAND, MAKEWPARAM(ID_BUTTON_START, BN_CLICKED), 0);
+                break;
+            }
+
+            // Sleep với variance
+            int sleepTime = interval;
+            if (useRandomVar && randomVariance > 0)
+                sleepTime = RandRange(
+                    max(1, interval - randomVariance),
+                    interval + randomVariance
+                );
+            Sleep(sleepTime);
+        }
+    }
+    return 0;
+}
+
+// ============================================================
+//   CẬP NHẬT HIỂN THỊ TÊN PHÍM
+// ============================================================
+void UpdateKeyDisplay(int vkCode) {
+    char keyName[32] = {};
+    unsigned int sc = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC);
+    switch (vkCode) {
+    case VK_LEFT:  strcpy_s(keyName, "Left");  break;
+    case VK_RIGHT: strcpy_s(keyName, "Right"); break;
+    case VK_UP:    strcpy_s(keyName, "Up");    break;
+    case VK_DOWN:  strcpy_s(keyName, "Down");  break;
+    default:       GetKeyNameTextA(sc << 16, keyName, sizeof(keyName));
+    }
+    if (!strlen(keyName)) strcpy_s(keyName, "Unknown");
+
+    char buf[64];
+    sprintf_s(buf, "Phim: [ %s ]", keyName);
+    SetWindowTextA(hButtonSetKey, buf);
+
+    sprintf_s(buf, "  BAT / TAT  ( %s )", keyName);
+    SetWindowTextA(hButtonStart, buf);
+}
+
+// ============================================================
+//   CẬP NHẬT THỐNG KÊ (mỗi 500ms)
+// ============================================================
+void UpdateStats() {
+    // Tính CPS từ click trong 1 giây (timer gọi 2 lần/giây)
+    LONG snap = InterlockedExchange(&clicksInSecond, 0);
+    currentCPS = snap * 2.0f; // vì timer 500ms -> x2
+
+    char buf[128];
+    sprintf_s(buf,
+        "Tong clicks: %ld  |  CPS: %.1f  |  Trang thai: %s",
+        totalClicks, currentCPS,
+        isClicking ? ">> DANG CHAY <<" : "DA TAT"
+    );
+    SetWindowTextA(hLabelStats, buf);
+    SetWindowTextA(hStatus, isClicking ? ">> DANG CHAY <<" : "DA TAT");
+}
+
+// ============================================================
+//   TẠO TRAY ICON
+// ============================================================
+void AddTrayIcon(HWND hwnd) {
+    nid.cbSize           = sizeof(NOTIFYICONDATA);
+    nid.hWnd             = hwnd;
+    nid.uID              = ID_TRAY_ICON;
+    nid.uFlags           = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    nid.uCallbackMessage = WM_TRAYICON;
+    nid.hIcon            = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON1));
+    if (!nid.hIcon) nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    strcpy_s(nid.szTip, "HVK Auto Clicker");
+    Shell_NotifyIcon(NIM_ADD, &nid);
+}
+void RemoveTrayIcon() { Shell_NotifyIcon(NIM_DELETE, &nid); }
+
+// ============================================================
+//   VẼ NÚT TÙYCHỈNH (OWNERDRAW)
+// ============================================================
+void DrawCustomButton(LPDRAWITEMSTRUCT pDIS) {
+    HDC hdc   = pDIS->hDC;
+    RECT rect = pDIS->rcItem;
+    bool pressed = (pDIS->itemState & ODS_SELECTED) != 0;
+
+    COLORREF bgColor;
+    bool isStart = (pDIS->CtlID == ID_BUTTON_START);
+    if (isStart)
+        bgColor = isClicking
+            ? (pressed ? RGB(200,50,40) : COLOR_DANGER)
+            : (pressed ? RGB(0,100,200) : COLOR_ACCENT);
+    else
+        bgColor = pressed ? COLOR_SURFACE2 : COLOR_SURFACE;
+
+    // Vẽ nền
+    HBRUSH hBr = CreateSolidBrush(bgColor);
+    FillRect(hdc, &rect, hBr);
+    DeleteObject(hBr);
+
+    // Vẽ viền bo góc (giả lập bằng cách vẽ nhiều pixel)
+    HBRUSH hBrBorder = CreateSolidBrush(COLOR_BORDER);
+    FrameRect(hdc, &rect, hBrBorder);
+    DeleteObject(hBrBorder);
+
+    // Vẽ chữ
+    char buf[64];
+    GetWindowTextA(pDIS->hwndItem, buf, 64);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, COLOR_TEXT);
+    HFONT hFont = (HFONT)SendMessage(pDIS->hwndItem, WM_GETFONT, 0, 0);
+    HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+    DrawTextA(hdc, buf, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(hdc, oldFont);
+}
+
+// ============================================================
+//   WINDOW PROCEDURE
+// ============================================================
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+
+    // ----------------------------------------------------------
+    case WM_CREATE: {
+        g_hwnd = hwnd;
+        hBrushBg       = CreateSolidBrush(COLOR_BG);
+        hBrushSurface  = CreateSolidBrush(COLOR_SURFACE);
+        hBrushSurface2 = CreateSolidBrush(COLOR_SURFACE2);
+
+        HFONT hFont = CreateFontA(14, 0, 0, 0, FW_NORMAL,
+            FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH, "Segoe UI");
+        HFONT hFontBold = CreateFontA(14, 0, 0, 0, FW_BOLD,
+            FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH, "Segoe UI");
+
+        // --- ROW 1: Tốc độ + Loại Click + Phím ---
+        // Label Tốc độ
+        HWND lbl;
+        lbl = CreateWindowA("STATIC", "Toc do (ms):", WS_VISIBLE|WS_CHILD,
+            10, 14, 85, 20, hwnd, NULL, NULL, NULL);
+        SendMessage(lbl, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        hEdit = CreateWindowA("EDIT", "100",
+            WS_VISIBLE|WS_CHILD|WS_BORDER|ES_NUMBER,
+            95, 12, 55, 22, hwnd, (HMENU)ID_EDIT_INTERVAL, NULL, NULL);
+        SendMessage(hEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        // Label Loại Click
+        lbl = CreateWindowA("STATIC", "Loai:", WS_VISIBLE|WS_CHILD,
+            158, 14, 35, 20, hwnd, NULL, NULL, NULL);
+        SendMessage(lbl, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        hComboClickType = CreateWindowA("COMBOBOX", NULL,
+            WS_VISIBLE|WS_CHILD|CBS_DROPDOWNLIST|WS_VSCROLL,
+            192, 10, 105, 80, hwnd, (HMENU)ID_COMBO_CLICKTYPE, NULL, NULL);
+        SendMessage(hComboClickType, WM_SETFONT, (WPARAM)hFont, TRUE);
+        SendMessageA(hComboClickType, CB_ADDSTRING, 0, (LPARAM)"Left Click");
+        SendMessageA(hComboClickType, CB_ADDSTRING, 0, (LPARAM)"Right Click");
+        SendMessageA(hComboClickType, CB_ADDSTRING, 0, (LPARAM)"Double Click");
+        SendMessageA(hComboClickType, CB_SETCURSEL, 0, 0);
+
+        // --- ROW 2: Random Variance ---
+        hCheckRandom = CreateWindowA("BUTTON", "Ngau nhien +-",
+            WS_VISIBLE|WS_CHILD|BS_CHECKBOX|BS_AUTOCHECKBOX,
+            10, 44, 110, 20, hwnd, (HMENU)ID_CHECK_RANDOM, NULL, NULL);
+        SendMessage(hCheckRandom, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        hEditRandVar = CreateWindowA("EDIT", "20",
+            WS_VISIBLE|WS_CHILD|WS_BORDER|ES_NUMBER,
+            122, 42, 45, 22, hwnd, (HMENU)ID_EDIT_RANDVAR, NULL, NULL);
+        SendMessage(hEditRandVar, WM_SETFONT, (WPARAM)hFont, TRUE);
+        EnableWindow(hEditRandVar, FALSE);
+
+        lbl = CreateWindowA("STATIC", "ms", WS_VISIBLE|WS_CHILD,
+            170, 44, 20, 20, hwnd, NULL, NULL, NULL);
+        SendMessage(lbl, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        // Max Clicks
+        hCheckMaxClick = CreateWindowA("BUTTON", "Max clicks:",
+            WS_VISIBLE|WS_CHILD|BS_CHECKBOX|BS_AUTOCHECKBOX,
+            200, 44, 85, 20, hwnd, (HMENU)ID_CHECK_MAXCLICK, NULL, NULL);
+        SendMessage(hCheckMaxClick, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        hEditMaxClick = CreateWindowA("EDIT", "1000",
+            WS_VISIBLE|WS_CHILD|WS_BORDER|ES_NUMBER,
+            288, 42, 55, 22, hwnd, (HMENU)ID_EDIT_MAXCLICK, NULL, NULL);
+        SendMessage(hEditMaxClick, WM_SETFONT, (WPARAM)hFont, TRUE);
+        EnableWindow(hEditMaxClick, FALSE);
+
+        // --- ROW 3: Fixed Position ---
+        hCheckFixPos = CreateWindowA("BUTTON", "Vi tri co dinh  X:",
+            WS_VISIBLE|WS_CHILD|BS_CHECKBOX|BS_AUTOCHECKBOX,
+            10, 74, 130, 20, hwnd, (HMENU)ID_CHECK_FIXPOS, NULL, NULL);
+        SendMessage(hCheckFixPos, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        hEditPosX = CreateWindowA("EDIT", "0",
+            WS_VISIBLE|WS_CHILD|WS_BORDER|ES_NUMBER,
+            140, 72, 55, 22, hwnd, (HMENU)ID_EDIT_POSX, NULL, NULL);
+        SendMessage(hEditPosX, WM_SETFONT, (WPARAM)hFont, TRUE);
+        EnableWindow(hEditPosX, FALSE);
+
+        lbl = CreateWindowA("STATIC", "Y:", WS_VISIBLE|WS_CHILD,
+            200, 74, 18, 20, hwnd, NULL, NULL, NULL);
+        SendMessage(lbl, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        hEditPosY = CreateWindowA("EDIT", "0",
+            WS_VISIBLE|WS_CHILD|WS_BORDER|ES_NUMBER,
+            218, 72, 55, 22, hwnd, (HMENU)ID_EDIT_POSY, NULL, NULL);
+        SendMessage(hEditPosY, WM_SETFONT, (WPARAM)hFont, TRUE);
+        EnableWindow(hEditPosY, FALSE);
+
+        // Lấy vị trí chuột hiện tại nếu tick fix pos
+        lbl = CreateWindowA("STATIC", "(0,0 = cursor hien tai khi chua tick)",
+            WS_VISIBLE|WS_CHILD,
+            280, 74, 200, 20, hwnd, NULL, NULL, NULL);
+        SendMessage(lbl, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        // --- ROW 4: Phím tắt ---
+        lbl = CreateWindowA("STATIC", "Phim tat:", WS_VISIBLE|WS_CHILD,
+            10, 106, 60, 20, hwnd, NULL, NULL, NULL);
+        SendMessage(lbl, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        hButtonSetKey = CreateWindowA("BUTTON", "Phim: [ F2 ]",
+            WS_VISIBLE|WS_CHILD|BS_OWNERDRAW,
+            72, 103, 130, 26, hwnd, (HMENU)ID_BUTTON_SETKEY, NULL, NULL);
+        SendMessage(hButtonSetKey, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        // Reset stats button (nhỏ)
+        HWND hBtnReset = CreateWindowA("BUTTON", "Reset Stats",
+            WS_VISIBLE|WS_CHILD|BS_OWNERDRAW,
+            215, 103, 130, 26, hwnd, (HMENU)9999, NULL, NULL);
+        SendMessage(hBtnReset, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        // --- ROW 5: Nút BẮT ĐẦU lớn ---
+        hButtonStart = CreateWindowA("BUTTON", "  BAT / TAT  ( F2 )",
+            WS_VISIBLE|WS_CHILD|BS_OWNERDRAW,
+            10, 138, 335, 42, hwnd, (HMENU)ID_BUTTON_START, NULL, NULL);
+        SendMessage(hButtonStart, WM_SETFONT, (WPARAM)hFontBold, TRUE);
+
+        // --- ROW 6: Trạng thái ---
+        hStatus = CreateWindowA("STATIC", "DA TAT",
+            WS_VISIBLE|WS_CHILD|SS_CENTER,
+            10, 188, 335, 20, hwnd, (HMENU)ID_LABEL_STATUS, NULL, NULL);
+        SendMessage(hStatus, WM_SETFONT, (WPARAM)hFontBold, TRUE);
+
+        // --- ROW 7: Thống kê ---
+        hLabelStats = CreateWindowA("STATIC",
+            "Tong clicks: 0  |  CPS: 0.0  |  Trang thai: DA TAT",
+            WS_VISIBLE|WS_CHILD|SS_CENTER,
+            10, 210, 335, 20, hwnd, (HMENU)ID_LABEL_STATS, NULL, NULL);
+        SendMessage(hLabelStats, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        // Separator
+        CreateWindowA("STATIC", "",
+            WS_VISIBLE|WS_CHILD|SS_ETCHEDHORZ,
+            10, 100, 335, 2, hwnd, NULL, NULL, NULL);
+        CreateWindowA("STATIC", "",
+            WS_VISIBLE|WS_CHILD|SS_ETCHEDHORZ,
+            10, 132, 335, 2, hwnd, NULL, NULL, NULL);
+        CreateWindowA("STATIC", "",
+            WS_VISIBLE|WS_CHILD|SS_ETCHEDHORZ,
+            10, 183, 335, 2, hwnd, NULL, NULL, NULL);
+        CreateWindowA("STATIC", "",
+            WS_VISIBLE|WS_CHILD|SS_ETCHEDHORZ,
+            10, 205, 335, 2, hwnd, NULL, NULL, NULL);
+
+        // Khởi tạo
+        RegisterHotKey(hwnd, 1, 0, currentHotkey);
+        hClickEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+        hStopEvent  = CreateEvent(NULL, TRUE,  FALSE, NULL);
+        CreateThread(NULL, 0, ClickerThread, NULL, 0, NULL);
+        SetTimer(hwnd, ID_TIMER_STATS, 500, NULL);
+        AddTrayIcon(hwnd);
+        break;
+    }
+
+    // ----------------------------------------------------------
+    case WM_TIMER:
+        if (wParam == ID_TIMER_STATS) UpdateStats();
+        break;
+
+    // ----------------------------------------------------------
+    case WM_DRAWITEM: {
+        LPDRAWITEMSTRUCT pDIS = (LPDRAWITEMSTRUCT)lParam;
+        if (pDIS->CtlType == ODT_BUTTON) {
+            DrawCustomButton(pDIS);
+            return TRUE;
+        }
+    } break;
+
+    // ----------------------------------------------------------
+    case WM_CTLCOLORSTATIC: {
+        HDC hdc = (HDC)wParam;
+        SetTextColor(hdc, COLOR_TEXT_DIM);
+        HWND hCtrl = (HWND)lParam;
+        if (hCtrl == hStatus) {
+            SetTextColor(hdc, isClicking ? COLOR_SUCCESS : COLOR_DANGER);
+        }
+        if (hCtrl == hLabelStats) {
+            SetTextColor(hdc, COLOR_TEXT_DIM);
+        }
+        SetBkColor(hdc, COLOR_BG);
+        SetBkMode(hdc, TRANSPARENT);
+        return (LRESULT)hBrushBg;
+    }
+
+    case WM_CTLCOLOREDIT: {
+        HDC hdc = (HDC)wParam;
+        SetTextColor(hdc, COLOR_TEXT);
+        SetBkColor(hdc, COLOR_SURFACE2);
+        return (LRESULT)hBrushSurface2;
+    }
+
+    case WM_CTLCOLORBTN: {
+        HDC hdc = (HDC)wParam;
+        SetBkColor(hdc, COLOR_BG);
+        return (LRESULT)hBrushBg;
+    }
+
+    // ----------------------------------------------------------
+    case WM_COMMAND: {
+        int id = LOWORD(wParam);
+
+        if (id == ID_BUTTON_START) {
+            if (isWaitingForKey) {
+                isWaitingForKey = false;
+                UpdateKeyDisplay(currentHotkey);
+                SetWindowTextA(hStatus, "Da huy doi phim.");
+                return 0;
+            }
+
+            // Đọc cấu hình
+            char buf[16];
+            GetWindowTextA(hEdit, buf, 16);
+            interval = max(1, atoi(buf));
+
+            GetWindowTextA(hEditRandVar, buf, 16);
+            randomVariance = max(0, atoi(buf));
+
+            GetWindowTextA(hEditMaxClick, buf, 16);
+            maxClicks = max(0, atoi(buf));
+
+            GetWindowTextA(hEditPosX, buf, 16); fixedX = atoi(buf);
+            GetWindowTextA(hEditPosY, buf, 16); fixedY = atoi(buf);
+
+            clickType    = (int)SendMessage(hComboClickType, CB_GETCURSEL, 0, 0);
+            useRandomVar = (SendMessage(hCheckRandom,   BM_GETCHECK, 0, 0) == BST_CHECKED);
+            useMaxClick  = (SendMessage(hCheckMaxClick, BM_GETCHECK, 0, 0) == BST_CHECKED);
+            useFixedPos  = (SendMessage(hCheckFixPos,   BM_GETCHECK, 0, 0) == BST_CHECKED);
+
+            isClicking = !isClicking;
+
+            if (isClicking) {
+                if (useMaxClick) totalClicks = 0; // Reset khi bắt đầu với max clicks
+                SetEvent(hClickEvent);
+            } else {
+                ResetEvent(hClickEvent);
+            }
+
+            // Redraw nút để cập nhật màu
+            InvalidateRect(hButtonStart, NULL, TRUE);
+            UpdateWindow(hButtonStart);
+            UpdateStats();
+        }
+        else if (id == ID_BUTTON_SETKEY) {
+            isWaitingForKey = true;
+            SetWindowTextA(hButtonSetKey, "[ ... BAM PHIM ... ]");
+            SetWindowTextA(hSt
